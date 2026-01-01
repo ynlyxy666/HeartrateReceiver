@@ -1,0 +1,123 @@
+本文是对以下两篇文章的补充扩展
+
+小米手环OBS直播心率简明教程
+
+这是一篇教程，关于如何用小米手环在直播时实时显示主播当前的心率。目前能搜到很多相关的教程，使用起来非常麻烦，需要在手机上下载应用、注册账号、电脑上登录等等。而本教程提供的方法由本人（Tnze）亲自开发，绿色、开源、免费、简单好用。想了解技术细节可以看我的前一篇专栏。使用本方法有几个前提条件，请注意：你需要持有小米手环4、5、6、7的普通版或者NFC版。在小米官方App里要能看到“运动心率广播”这个选项，小米手环7Pro、8、8Pro似乎没有该功能，因此不适用本方法。你需要持有支持蓝牙功能的电脑（正常应该都
+
+文章
+Tnze
+1万
+107
+81
+
+小米手环10心率广播OBS直播方法
+
+看到新出的小米手环10支持蓝牙心率广播，手痒下单当天就买到了? 经分析，小米手环10实现了标准的HRS规范，即HEART RATE SERVICE。技术细节可以参考：https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0/ [图片] 本文是一篇教程，关于如何用小米手环在直播时实时显示主播当前的心率。 由于目前版本使用的是BLE标准的心率服务，本文提供的方法很可能也可以支持其他厂商的心率设备。 本文适用于小米手环9~10，如
+
+文章
+Tnze
+4389
+76
+59
+
+1. 配合脚本获取心率数据
+当运行 miband-heart-rate.exe 时，程序会在 3030 端口监听 HTTP 请求，此时如果打开 http://127.0.0.1:3030/ 程序就会返回一个 html 页面，用来显示心率。
+
+而如果请求的是 http://127.0.0.1:3030/heartrate 这个端点，则程序会以 application/json 格式返回心率数据。例如：
+
+60
+复习一下JSON的定义（RFC 4627）：一个 JSON 值必须是一个 object / array / number / string，或者 false null true 这三个字面量之一。
+因此60本身是一个合法的 JSON 值，类型为number。
+
+所以我们可以通过脚本去获取心率数据，而不通过网页，例如：
+
+// JavaScript
+while (true) {
+	try {
+		let response = await fetch('http://127.0.0.1:3030/heartrate')
+		let heartRate = Number(await response.json())
+		console.log("Heart Rate: ", heartRate)
+	} catch (err) {
+		console.error(err)
+	}
+}
+# Python
+import requests
+import time
+
+while True:
+    try:
+        response = requests.get('http://127.0.0.1:3030/heartrate')
+        heart_rate = response.json()
+        print(f"Heart Rate: {heart_rate}")
+    except Exception as err:
+        print(f"Error: {err}")
+// Go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
+)
+
+func main() {
+    client := &http.Client{Timeout: 60 * time.Second}
+    for {
+        resp, err := client.Get("http://127.0.0.1:3030/heartrate")
+        if err != nil {
+            fmt.Println(err)
+            continue
+        }
+
+        var heartrate uint16
+        if err := json.NewDecoder(resp.Body).Decode(&heartrate); err != nil {
+            fmt.Println(err)
+        } else {
+            fmt.Println(heartrate)
+        }
+        resp.Body.Close()
+    }
+}
+2. 自定义显示效果
+方法1：直接在OBS里配置自定义CSS
+
+例如我想替换字体，先在Google Fonts上找到喜欢的字体，然后在自定义CSS里用导入，并设置 #heart-rate-number 元素的 font-family 即可，例如：
+
+@import url("https://fonts.googleapis.com/css2?family=Hanalei+Fill");
+
+#heart-rate-number { font-family: 'Hanalei Fill'; }
+再比如我想把整体调大一点，但是用OBS放大的时候会比较模糊，也可以通过CSS实现缩放整个<body>元素：
+
+body {
+  background-color: rgba(0, 0, 0, 0);
+  margin: 0px auto;
+  overflow: hidden;
+  transform: scale(2); /* 加了这一行 */
+}
+方法2：可以从Github上下载网页的源代码并修改
+
+在for-obs分支的web/index.html中可以修改各种样式，包括字体、心跳动画等等。如果不想重新编译的话，也可以参考我在<script>最后写的逻辑自己开发一个网页，能访问http://127.0.0.1:3030/heartrate获取到心率就行。
+
+3. 蓝牙协议简介
+在小米手环4、5、6、7中提供的运动心率广播，正如其名称所说，心率是通过蓝牙广播（Advertising）发出去的。
+
+但是小米手环10的心率广播，并不是真的在广播时发送的。广播数据中只包含了HRS服务的声明，以及设备的简写名称而已。客户端扫描广播时识别到这个心率设备，还需要建立连接等一系列交互之后，才能接收到心率数据，所以并不是单纯的接收广播。
+
+可以用 WebBluetooth 简单模拟一下这个过程，在Chrome或者Edge浏览器的控制台中输入以下代码：
+
+(async () => {
+  const device = await navigator.bluetooth.requestDevice({filters: [{ services: ["heart_rate"] }]});
+  console.log(device.name);
+  const gatt = await device.gatt.connect();
+  const hrs = await gatt.getPrimaryService("heart_rate");
+  const hrm = await hrs.getCharacteristic("00002a37-0000-1000-8000-00805f9b34fb");
+  hrm.addEventListener("characteristicvaluechanged", event => console.log(event.target.value));
+  hrm.startNotifications();
+})();
+获得的Heart Rate Measurement 数据也并不直接是心率数据，还需要解析：
+
+第一个字节是 Flags Field，其中bit0代表心率数据格式，0代表心率数据是u8，1代表心率数据是u16；bit1代表传感器接触检测，0代表传感器与皮肤接触不良，1代表传感器与皮肤接触良好；bit2代表传感器是否支持接触检测，0代表不支持，1代表支持；余下的bit这里不作介绍
+
+第二到三个字节代表心率数据，具体长度取决于Flags Field的bit0。小端序。 作者：Tnze https://www.bilibili.com/read/cv42151192/?opus_fallback=1 出处：bilibili
