@@ -2,6 +2,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu
 from PyQt5.QtGui import QPixmap
 from qfluentwidgets import TitleLabel, CardWidget, BodyLabel, PushButton
+import webbrowser
 
 class WidgetsInterface(QWidget):
     def __init__(self, parent=None):
@@ -26,7 +27,7 @@ class WidgetsInterface(QWidget):
         card1_layout.setContentsMargins(20, 20, 20, 20)
         card1_layout.setSpacing(20)
         
-        card1_text = BodyLabel("<b>JSON/OBS 数据接口</b><br>提供 HTTP 服务用于 OBS 直播<br><span style='color: green;'>端口: 3030</span>")
+        card1_text = BodyLabel("<b>JSON/OBS 数据接口</b><br>提供 HTTP 服务用于 OBS 直播<br>单击卡片打开文档<br><span style='color: green;'>端口: 3030</span>")
         card1_text.setWordWrap(True)
         
         self.card1_button = PushButton("启动服务", self.card1)
@@ -47,7 +48,7 @@ class WidgetsInterface(QWidget):
         card2_layout.setContentsMargins(20, 20, 20, 20)
         card2_layout.setSpacing(20)
         
-        card2_text = BodyLabel("<b>实时心率波动图</b><br>专为极客设计<br><span style='color: red;'>组件设置，关闭在右键菜单里<br>主窗口关闭时小窗口不关闭</span>")
+        card2_text = BodyLabel("<b>实时心率波动图，点击启动</b><br>专为极客设计<br><span style='color: red;'>组件设置，关闭在右键菜单里<br>主窗口关闭时小窗口不关闭</span>")
         card2_text.setWordWrap(True)
         
         card2_image = QLabel()
@@ -69,7 +70,10 @@ class WidgetsInterface(QWidget):
         """事件过滤器，用于处理卡片的点击和右键菜单"""
         if obj == self.card1:
             if event.type() == event.MouseButtonPress:
-                if event.button() == Qt.RightButton:
+                if event.button() == Qt.LeftButton:
+                    webbrowser.open("https://www.bilibili.com/opus/1083188488624406549")
+                    return True
+                elif event.button() == Qt.RightButton:
                     self.show_card1_context_menu(event.globalPos())
                     return True
         elif obj == self.card2:
