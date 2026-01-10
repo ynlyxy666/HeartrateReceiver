@@ -9,6 +9,7 @@ from func.interfaces.heart_rate_window import HeartRateWindow
 from func.interfaces.close_confirmation_dialog import CloseConfirmationDialog
 from func.http_server import HeartRateHTTPServer
 from func.settings_manager import SettingsManager
+from func.memory_share import MemoryShareManager
 
 # 主窗口类
 class HeartRateMonitorWindow(FluentWindow):
@@ -28,6 +29,10 @@ class HeartRateMonitorWindow(FluentWindow):
         
         # 初始化 HTTP 服务器
         self.http_server = HeartRateHTTPServer(port=3030)
+        
+        # 初始化内存共享管理器
+        self.memory_share_manager = MemoryShareManager()
+        self.memory_share_manager.initialize()
         
         # 创建界面实例
         self.home_interface = HomeInterface(self)
@@ -184,6 +189,8 @@ class HeartRateMonitorWindow(FluentWindow):
             self.heart_rate_window.update_heart_rate(heart_rate)
         # 更新 HTTP 服务器的心率数据
         self.http_server.update_heart_rate(heart_rate)
+        # 更新共享内存的心率数据
+        self.memory_share_manager.update_heart_rate(heart_rate)
 
     # 更新状态信息
     def update_status(self, status):
@@ -291,6 +298,9 @@ class HeartRateMonitorWindow(FluentWindow):
             self.core.monitor_thread = None
         
         self.http_server.stop()
+        
+        # 关闭共享内存
+        self.memory_share_manager.close()
         
         # 隐藏托盘图标
         self.tray_icon.hide()
