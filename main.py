@@ -96,7 +96,7 @@ class HeartRateMonitorWindow(FluentWindow):
             self.home_interface.connect_button.setEnabled(False)
             InfoBar.warning(
                 title="未发现设备",
-                content="没有扫描到任何BLE设备",
+                content="没有扫描到任何设备",
                 orient=Qt.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,
@@ -111,8 +111,8 @@ class HeartRateMonitorWindow(FluentWindow):
         self.home_interface.scan_button.setEnabled(True)
         self.home_interface.scan_button.setText("重新扫描")
         InfoBar.error(
-            title="扫描出错",
-            content=f"扫描设备时出错: {error}",
+            title="扫描出错：",
+            content=f"{error}",
             orient=Qt.Horizontal,
             isClosable=True,
             position=InfoBarPosition.TOP,
@@ -141,7 +141,7 @@ class HeartRateMonitorWindow(FluentWindow):
         if not self.core.is_device_supported(self.core.selected_device):
             InfoBar.warning(
                 title="设备不支持",
-                content="所选设备不支持心率监测功能，请重新选择",
+                content="请重新选择",
                 orient=Qt.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,
