@@ -1,11 +1,14 @@
 import sys
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtWidgets import QApplication, QDialog, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtGui import QIcon
 from qfluentwidgets import (InfoBar, InfoBarPosition,FluentWindow, NavigationItemPosition,FluentIcon)
 from func.core import HeartRateMonitorCore, DeviceScanThread, HeartRateMonitorThread
-from func.interfaces import HomeInterface, HeartRateInterface, WidgetsInterface
+from func.interfaces import HomeInterface, HeartRateInterface, WidgetsInterface, SettingsInterface
 from func.interfaces.heart_rate_window import HeartRateWindow
+from func.interfaces.close_confirmation_dialog import CloseConfirmationDialog
 from func.http_server import HeartRateHTTPServer
+from func.settings_manager import SettingsManager
 
 # 主窗口类
 class HeartRateMonitorWindow(FluentWindow):
@@ -14,6 +17,9 @@ class HeartRateMonitorWindow(FluentWindow):
         self.setWindowTitle("心率监测器")
         self.resize(500, 400)  # 紧凑窗口大小
         self.setFixedSize(self.size())  # 固定窗口大小，使其不可调整
+        
+        # 初始化设置管理器
+        self.settings_manager = SettingsManager()
         
         # 初始化核心功能类
         self.core = HeartRateMonitorCore()
@@ -27,14 +33,21 @@ class HeartRateMonitorWindow(FluentWindow):
         self.home_interface = HomeInterface(self)
         self.heart_rate_interface = HeartRateInterface(self)
         self.widgets_interface = WidgetsInterface(self)
+        self.settings_interface = SettingsInterface(self)
         
         # 添加到导航栏
         self.addSubInterface(self.home_interface, FluentIcon.BLUETOOTH, "设备连接", NavigationItemPosition.TOP)
         self.addSubInterface(self.heart_rate_interface, FluentIcon.HEART, "心率显示", NavigationItemPosition.TOP)
         self.addSubInterface(self.widgets_interface, FluentIcon.LINK, "小组件", NavigationItemPosition.TOP)
+        self.addSubInterface(self.settings_interface, FluentIcon.SETTING, "设置", NavigationItemPosition.TOP)
+        
+        # 不需要监听导航栏，直接在SettingsInterface的showEvent中更新设置
         
         # 心率窗口（独立窗口）
         self.heart_rate_window = None
+        
+        # 初始化系统托盘图标
+        self.init_tray_icon()
     
     def open_heart_rate_window(self):
         """打开独立的心率显示窗口"""
@@ -50,6 +63,8 @@ class HeartRateMonitorWindow(FluentWindow):
         if self.heart_rate_window:
             self.heart_rate_window.close()
             self.heart_rate_window = None
+    
+
         
     # 扫描设备
     def start_scan(self):
@@ -224,11 +239,107 @@ class HeartRateMonitorWindow(FluentWindow):
         self.user_disconnecting = False
         self.is_disconnecting = False
     
-    # 关闭窗口时停止所有线程
-    def closeEvent(self, event):
+    def init_tray_icon(self):
+        """初始化系统托盘图标"""
+        # 创建托盘图标
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # 设置托盘图标（使用Qt默认图标）
+        self.tray_icon.setIcon(self.style().standardIcon(1))  # 使用信息图标
+        
+        # 创建菜单
+        self.tray_menu = QMenu(self)
+        
+        # 添加显示主窗口动作
+        self.show_action = QAction("显示主窗口", self)
+        self.show_action.triggered.connect(self.show_main_window)
+        self.tray_menu.addAction(self.show_action)
+        
+        # 添加退出动作
+        self.exit_action = QAction("退出", self)
+        self.exit_action.triggered.connect(self.exit_application)
+        self.tray_menu.addAction(self.exit_action)
+        
+        # 设置托盘菜单
+        self.tray_icon.setContextMenu(self.tray_menu)
+        
+        # 连接托盘图标激活信号
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        
+        # 显示托盘图标
+        self.tray_icon.show()
+    
+    def show_main_window(self):
+        """显示主窗口"""
+        self.show()
+        self.raise_()
+        self.activateWindow()
+    
+    def hide_main_window(self):
+        """隐藏主窗口"""
+        self.hide()
+    
+    def exit_application(self):
+        """退出应用程序"""
+        # 关闭所有窗口和线程
+        if self.heart_rate_window:
+            self.close_heart_rate_window()
+        
+        if self.core.monitor_thread:
+            self.core.monitor_thread.stop()
+            self.core.monitor_thread.wait()
+            self.core.monitor_thread = None
+        
         self.http_server.stop()
-        self.core.cleanup()
-        event.accept()
+        
+        # 隐藏托盘图标
+        self.tray_icon.hide()
+        
+        # 退出应用
+        QApplication.quit()
+    
+    def on_tray_icon_activated(self, reason):
+        """托盘图标激活事件处理"""
+        # 左键点击显示主窗口
+        if reason == QSystemTrayIcon.Trigger:
+            self.show_main_window()
+    
+    # 关闭窗口时的处理
+    def closeEvent(self, event):
+        """重写关闭事件，实现最小化到任务栏的逻辑"""
+        # 检查设置
+        close_behavior = self.settings_manager.get("close_behavior", "ask")
+        show_confirmation = self.settings_manager.get("show_close_confirmation", True)
+        
+        # 如果设置了不显示确认对话框，直接执行对应操作
+        if not show_confirmation:
+            if close_behavior == "minimize":
+                self.hide_main_window()
+                event.ignore()
+            elif close_behavior == "close":
+                self.exit_application()
+            return
+        
+        # 显示确认对话框
+        dialog = CloseConfirmationDialog(self)
+        if dialog.exec_():
+            option = dialog.get_option()
+            dont_ask_again = dialog.get_dont_ask_again()
+            
+            # 如果选择了下次不再提示，保存设置
+            if dont_ask_again:
+                self.settings_manager.set("show_close_confirmation", False)
+                self.settings_manager.set("close_behavior", option)
+            
+            # 执行对应操作
+            if option == "minimize":
+                self.hide_main_window()
+                event.ignore()
+            elif option == "close":
+                self.exit_application()
+        else:
+            # 用户取消关闭
+            event.ignore()
     
     # 启动 HTTP 服务器
     def start_http_server(self):

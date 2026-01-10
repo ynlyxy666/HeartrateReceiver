@@ -19,6 +19,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+find_bleak_bridge.py
+.trae
+dist
 
 # Virtual Environment
 venv/

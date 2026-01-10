@@ -1,0 +1,158 @@
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from qfluentwidgets import (
+    CardWidget, TitleLabel, BodyLabel, SubtitleLabel,
+    PushButton, PrimaryPushButton, SegmentedWidget, CheckBox, ScrollArea
+)
+
+class SettingsInterface(QWidget):
+    """设置界面"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("settings_interface")
+        self.parent = parent
+        self.setup_ui()
+    
+    def update_settings(self):
+        """更新设置状态，读取持久化数据"""
+        # 重新读取关闭行为设置
+        close_behavior = self.parent.settings_manager.get("close_behavior", "ask")
+        if close_behavior == "close" or close_behavior == "ask":
+            self.segmented_widget.setCurrentItem("close")
+        elif close_behavior == "minimize":
+            self.segmented_widget.setCurrentItem("minimize")
+        
+        # 重新读取显示关闭确认对话框设置
+        show_confirmation = self.parent.settings_manager.get("show_close_confirmation", True)
+        self.confirmation_checkbox.setChecked(show_confirmation)
+    
+    def showEvent(self, event):
+        """当界面显示时调用，用于更新设置状态"""
+        super().showEvent(event)
+        # 读取并更新设置状态
+        self.update_settings()
+    
+    def setup_ui(self):
+        # 主布局
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(16)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # 创建滚动区域（使用QFluentWidgets的ScrollArea，自带fluent风格滚动条）
+        self.scroll_area = ScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # 设置滚动区域背景为透明，与整体界面融合
+        self.scroll_area.setStyleSheet("border: none; background-color: transparent;")
+        
+        # 创建滚动区域的内容widget
+        self.scroll_content = QWidget()
+        # 设置滚动内容背景色为透明，继承父容器背景
+        self.scroll_content.setStyleSheet("background-color: transparent;")
+        self.scroll_layout = QVBoxLayout(self.scroll_content)
+        self.scroll_layout.setSpacing(16)
+        # 为右侧滚动条留出空间，避免卡片内容与滚动条重叠
+        self.scroll_layout.setContentsMargins(0, 0, 20, 0)
+        
+        # 关闭行为设置卡片
+        self.close_behavior_card = CardWidget(self.scroll_content)
+        self.close_behavior_layout = QVBoxLayout(self.close_behavior_card)
+        self.close_behavior_layout.setSpacing(12)
+        self.close_behavior_layout.setContentsMargins(20, 20, 20, 20)
+        
+        self.close_behavior_title = BodyLabel("关闭行为")
+        
+        # 分段控制器
+        self.segmented_widget = SegmentedWidget(self.scroll_content)
+        self.segmented_widget.addItem("close", "直接关闭")
+        self.segmented_widget.addItem("minimize", "最小化到任务栏")
+        
+        # 设置当前选中项
+        close_behavior = self.parent.settings_manager.get("close_behavior", "ask")
+        if close_behavior == "close" or close_behavior == "ask":
+            self.segmented_widget.setCurrentItem("close")
+        elif close_behavior == "minimize":
+            self.segmented_widget.setCurrentItem("minimize")
+        
+        # 连接分段控制器信号
+        self.segmented_widget.currentItemChanged.connect(self.on_close_behavior_changed)
+        
+        # 显示关闭确认对话框复选框
+        self.confirmation_checkbox = CheckBox("显示关闭确认对话框", self.scroll_content)
+        show_confirmation = self.parent.settings_manager.get("show_close_confirmation", True)
+        self.confirmation_checkbox.setChecked(show_confirmation)
+        self.confirmation_checkbox.stateChanged.connect(self.on_confirmation_toggled)
+        
+        # 复选框布局
+        self.confirmation_layout = QHBoxLayout()
+        self.confirmation_layout.setAlignment(Qt.AlignRight)
+        self.confirmation_layout.addWidget(self.confirmation_checkbox)
+        
+        # 添加控件到关闭行为卡片
+        self.close_behavior_layout.addWidget(self.close_behavior_title)
+        self.close_behavior_layout.addWidget(self.segmented_widget)
+        self.close_behavior_layout.addLayout(self.confirmation_layout)
+        
+        # 将关闭行为卡片添加到滚动布局
+        self.scroll_layout.addWidget(self.close_behavior_card)
+        
+        # 获取第一张卡片的最小高度
+        # 由于第一张卡片包含标题、分段控制器和复选框，我们需要确保空卡片至少有相同的高度
+        min_card_height = 180  # 根据第一张卡片的内容估算的最小高度
+        
+        # 添加第1个空卡片，与第一张卡片大小相同
+        self.empty_card1 = CardWidget(self.scroll_content)
+        self.empty_card1.setMinimumHeight(min_card_height)
+        self.empty_layout1 = QVBoxLayout(self.empty_card1)
+        self.empty_layout1.setSpacing(12)
+        self.empty_layout1.setContentsMargins(20, 20, 20, 20)
+        # 添加与第一张卡片类似的内容结构，确保大小一致
+        self.empty_layout1.addWidget(BodyLabel("空卡片 2"))
+        # 添加占位控件，模拟第一张卡片的高度
+        from PyQt5.QtWidgets import QSpacerItem, QSizePolicy
+        spacer1 = QSpacerItem(0, 100, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.empty_layout1.addItem(spacer1)
+        self.scroll_layout.addWidget(self.empty_card1)
+        
+        # 添加第2个空卡片，与第一张卡片大小相同
+        self.empty_card2 = CardWidget(self.scroll_content)
+        self.empty_card2.setMinimumHeight(min_card_height)
+        self.empty_layout2 = QVBoxLayout(self.empty_card2)
+        self.empty_layout2.setSpacing(12)
+        self.empty_layout2.setContentsMargins(20, 20, 20, 20)
+        self.empty_layout2.addWidget(BodyLabel("空卡片 3"))
+        # 添加占位控件，模拟第一张卡片的高度
+        spacer2 = QSpacerItem(0, 100, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.empty_layout2.addItem(spacer2)
+        self.scroll_layout.addWidget(self.empty_card2)
+        
+        # 添加第3个空卡片，与第一张卡片大小相同
+        self.empty_card3 = CardWidget(self.scroll_content)
+        self.empty_card3.setMinimumHeight(min_card_height)
+        self.empty_layout3 = QVBoxLayout(self.empty_card3)
+        self.empty_layout3.setSpacing(12)
+        self.empty_layout3.setContentsMargins(20, 20, 20, 20)
+        self.empty_layout3.addWidget(BodyLabel("空卡片 4"))
+        # 添加占位控件，模拟第一张卡片的高度
+        spacer3 = QSpacerItem(0, 100, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.empty_layout3.addItem(spacer3)
+        self.scroll_layout.addWidget(self.empty_card3)
+        
+        # 添加上下缓冲空间
+        self.scroll_layout.addSpacing(20)
+        
+        # 设置滚动区域的内容
+        self.scroll_area.setWidget(self.scroll_content)
+        
+        # 将滚动区域添加到主布局
+        self.main_layout.addWidget(self.scroll_area)
+    
+    def on_close_behavior_changed(self, item):
+        """关闭行为变化处理"""
+        self.parent.settings_manager.set("close_behavior", item)
+    
+    def on_confirmation_toggled(self, state):
+        """显示关闭确认对话框开关变化处理"""
+        self.parent.settings_manager.set("show_close_confirmation", state == Qt.Checked)

@@ -12,8 +12,8 @@ class DynamicLineChart(QWidget):
         super().__init__(parent)
         
         # 常量定义
-        self.GRID_SPACE = 20  # 网格间隔
-        self.MOVE_STEP = 10    # 移动步长（能够被间隔整除）
+        self.GRID_SPACE = 10  # 网格间隔
+        self.MOVE_STEP = 1    # 移动步长（能够被间隔整除）
         self.MAX_Y = 200      # Y轴最大值（心率最大刻度）
         self.MIN_Y = 0        # Y轴最小值
         
