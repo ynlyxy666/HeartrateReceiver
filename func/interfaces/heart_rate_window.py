@@ -1,9 +1,10 @@
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer, QPoint
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu
 from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QPixmap
 from collections import deque
 from qfluentwidgets import CardWidget
 from func.interfaces.heart_rate_interface import DynamicLineChart
+from func.settings_manager import SettingsManager
 
 
 class HeartRateWindow(QMainWindow):
@@ -12,14 +13,36 @@ class HeartRateWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("heart_rate_window")
-        self.parent_window = None
+        self.parent_window = parent
         self.current_device_name = None
-        self.always_on_top = True
         
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # 初始化设置管理器
+        self.settings_manager = SettingsManager()
+        
+        # 读取悬浮窗设置
+        self.drag_enabled = self.settings_manager.get("floating_window_drag_enabled", True)
+        self.drag_type = self.settings_manager.get("floating_window_drag_type", "single_click")
+        self.always_on_top = self.settings_manager.get("floating_window_always_on_top", True)
+        
+        # 读取上次位置
+        pos = self.settings_manager.get("floating_window_pos", {"x": 100, "y": 100})
+        self.last_pos = QPoint(pos["x"], pos["y"])
+        
+        # 双击拖动相关变量
+        self.double_click_timer = QTimer()
+        self.double_click_timer.setSingleShot(True)
+        self.double_click_timer.timeout.connect(self._handle_single_click)
+        self.drag_position = None
+        self.is_dragging = False
+        
+        # 设置窗口标志
+        self.update_window_flags()
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.resize(400, 320)
         self.setFixedSize(self.size())
+        
+        # 设置窗口位置
+        self.move(self.last_pos)
         
         self.central_widget = QWidget()
         self.central_widget.setObjectName("central_widget")
@@ -119,14 +142,47 @@ class HeartRateWindow(QMainWindow):
         self.main_layout.addWidget(self.chart_card)
     
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
+        """鼠标按下事件，根据设置决定是单击拖动还是双击拖动"""
+        if self.drag_enabled and event.button() == Qt.LeftButton:
+            if self.drag_type == "single_click":
+                # 单击拖动
+                self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
+                self.is_dragging = True
+                event.accept()
+            elif self.drag_type == "double_click":
+                # 双击拖动处理
+                if self.double_click_timer.isActive():
+                    # 第二次点击，处理双击拖动
+                    self.double_click_timer.stop()
+                    self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
+                    self.is_dragging = True
+                    event.accept()
+                else:
+                    # 第一次点击，启动定时器等待第二次点击
+                    self.double_click_timer.start(250)  # 250ms内双击有效
+    
+    def mouseReleaseEvent(self, event):
+        """鼠标释放事件"""
+        self.is_dragging = False
+        event.accept()
     
     def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton:
+        """鼠标移动事件"""
+        if self.drag_enabled and event.buttons() == Qt.LeftButton and self.is_dragging:
             self.move(event.globalPos() - self.drag_position)
             event.accept()
+    
+    def closeEvent(self, event):
+        """窗口关闭事件，保存窗口位置"""
+        # 保存当前位置
+        pos = self.pos()
+        self.settings_manager.set("floating_window_pos", {"x": pos.x(), "y": pos.y()})
+        super().closeEvent(event)
+    
+    def _handle_single_click(self):
+        """处理单击事件（如果没有发生双击）"""
+        # 这里可以添加单击的其他处理逻辑，如果不需要可以留空
+        pass
     
     def contextMenuEvent(self, event):
         """显示右键菜单"""
@@ -144,6 +200,8 @@ class HeartRateWindow(QMainWindow):
         
         if action == action_always_on_top:
             self.always_on_top = action_always_on_top.isChecked()
+            # 保存设置到设置管理器
+            self.settings_manager.set("floating_window_always_on_top", self.always_on_top)
             self.update_window_flags()
         elif action == action_close:
             self.close()
@@ -155,6 +213,23 @@ class HeartRateWindow(QMainWindow):
         else:
             self.setWindowFlags(Qt.FramelessWindowHint)
         self.show()
+    
+    def reload_settings(self):
+        """重新加载设置并立刻生效"""
+        # 重新读取悬浮窗设置
+        self.drag_enabled = self.settings_manager.get("floating_window_drag_enabled", True)
+        self.drag_type = self.settings_manager.get("floating_window_drag_type", "single_click")
+        self.always_on_top = self.settings_manager.get("floating_window_always_on_top", True)
+        
+        # 重新读取上次位置
+        pos = self.settings_manager.get("floating_window_pos", {"x": 100, "y": 100})
+        self.last_pos = QPoint(pos["x"], pos["y"])
+        
+        # 更新窗口状态
+        self.update_window_flags()
+        
+        # 输出调试信息
+        print(f"悬浮窗设置已更新：拖动功能={'启用' if self.drag_enabled else '禁用'}，拖动方式={self.drag_type}，始终置顶={'是' if self.always_on_top else '否'}")
     
     def update_heart_rate(self, heart_rate):
         """更新心率数值"""

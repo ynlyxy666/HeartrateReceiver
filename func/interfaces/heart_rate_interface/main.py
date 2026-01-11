@@ -5,6 +5,7 @@ from qfluentwidgets import SegmentedWidget
 from .line_chart_page import LineChartPage
 from .big_number_page import BigNumberPage
 from .dashboard_page import DashboardPage
+from .trend_chart_page import TrendChartPage
 
 
 class HeartRateInterface(QWidget):
@@ -32,28 +33,32 @@ class HeartRateInterface(QWidget):
         self.segmented_widget.addItem("line_chart", "折线图")
         self.segmented_widget.addItem("big_number", "大数字")
         self.segmented_widget.addItem("dashboard", "仪表盘")
+        self.segmented_widget.addItem("trend_chart", "趋势折线")
         self.segmented_widget.setCurrentItem("line_chart")
         self.segmented_widget.currentItemChanged.connect(self.on_segmented_changed)
         
         # 将分段控制器添加到主布局
         self.main_layout.addWidget(self.segmented_widget)
         
-        # 创建三个子页面
+        # 创建四个子页面
         self.line_chart_page = LineChartPage(self)
         self.big_number_page = BigNumberPage(self)
         self.dashboard_page = DashboardPage(self)
+        self.trend_chart_page = TrendChartPage(self)
         
         # 连接大数字页面的字体选择按钮信号
         self.big_number_page.font_select_button.clicked.connect(self.select_font)
         
-        # 将三个页面添加到主布局
+        # 将四个页面添加到主布局
         self.main_layout.addWidget(self.line_chart_page)
         self.main_layout.addWidget(self.big_number_page)
         self.main_layout.addWidget(self.dashboard_page)
+        self.main_layout.addWidget(self.trend_chart_page)
         
         # 初始化只显示第一个页面
         self.big_number_page.hide()
         self.dashboard_page.hide()
+        self.trend_chart_page.hide()
     
     def on_segmented_changed(self, current_item):
         """分段控制器切换事件"""
@@ -61,6 +66,7 @@ class HeartRateInterface(QWidget):
         self.line_chart_page.hide()
         self.big_number_page.hide()
         self.dashboard_page.hide()
+        self.trend_chart_page.hide()
         
         # 显示当前选中的页面
         if current_item == "line_chart":
@@ -69,6 +75,8 @@ class HeartRateInterface(QWidget):
             self.big_number_page.show()
         elif current_item == "dashboard":
             self.dashboard_page.show()
+        elif current_item == "trend_chart":
+            self.trend_chart_page.show()
     
     def update_heart_rate(self, heart_rate):
         """更新心率数值"""
@@ -105,6 +113,9 @@ class HeartRateInterface(QWidget):
         # 更新仪表盘卡片显示
         self.dashboard_page.dashboard_gauge.set_value(heart_rate)
         self.dashboard_page.dashboard_gauge.set_average_value(round(avg_hr) if avg_hr > 0 else 0)
+        
+        # 更新趋势折线图显示
+        self.trend_chart_page.update_heart_rate(heart_rate)
     
     def select_font(self):
         """打开字体选择对话框"""
@@ -158,10 +169,14 @@ class HeartRateInterface(QWidget):
                 if device_name:
                     self.current_device_name = device_name
                     self.line_chart_page.right_label.setText(device_name)
+                    self.trend_chart_page.right_label.setText(device_name)
                 else:
                     self.line_chart_page.right_label.setText("未知设备")
+                    self.trend_chart_page.right_label.setText("未知设备")
             else:
                 self.line_chart_page.right_label.setText("未知设备")
+                self.trend_chart_page.right_label.setText("未知设备")
         elif "已断开连接" in status or "请先连接设备" in status:
             self.current_device_name = None
             self.line_chart_page.right_label.setText("请先连接设备")
+            self.trend_chart_page.right_label.setText("请先连接设备")

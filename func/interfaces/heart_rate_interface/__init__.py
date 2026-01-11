@@ -3,6 +3,8 @@ from .radial_gauge import RadialGauge
 from .line_chart_page import LineChartPage
 from .big_number_page import BigNumberPage
 from .dashboard_page import DashboardPage
+from .trend_line_chart import TrendLineChart
+from .trend_chart_page import TrendChartPage
 from .main import HeartRateInterface
 
 
@@ -12,5 +14,7 @@ __all__ = [
     'LineChartPage',
     'BigNumberPage',
     'DashboardPage',
+    'TrendLineChart',
+    'TrendChartPage',
     'HeartRateInterface'
 ]

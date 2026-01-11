@@ -59,6 +59,10 @@ class HeartRateMonitorWindow(FluentWindow):
         if self.heart_rate_window is None:
             self.heart_rate_window = HeartRateWindow(None)
             self.heart_rate_window.parent_window = self
+        else:
+            # 如果悬浮窗已存在，重新加载设置
+            self.heart_rate_window.reload_settings()
+        
         self.heart_rate_window.show()
         self.heart_rate_window.raise_()
         self.heart_rate_window.activateWindow()

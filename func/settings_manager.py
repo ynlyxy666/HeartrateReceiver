@@ -12,7 +12,12 @@ class SettingsManager:
         # 默认设置
         self.default_settings = {
             "close_behavior": "ask",  # "ask", "minimize", "close"
-            "show_close_confirmation": True
+            "show_close_confirmation": True,
+            # 悬浮窗设置
+            "floating_window_drag_enabled": True,  # 是否启用悬浮窗拖动功能
+            "floating_window_drag_type": "single_click",  # "single_click" 或 "double_click"
+            "floating_window_always_on_top": True,  # 是否始终置顶
+            "floating_window_pos": {"x": 100, "y": 100}  # 悬浮窗上次位置
         }
         
         # 确保设置目录存在

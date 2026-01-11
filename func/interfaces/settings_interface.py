@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy
 from qfluentwidgets import (
     CardWidget, TitleLabel, BodyLabel, SubtitleLabel,
     PushButton, PrimaryPushButton, SegmentedWidget, CheckBox, ScrollArea
@@ -26,6 +26,18 @@ class SettingsInterface(QWidget):
         # 重新读取显示关闭确认对话框设置
         show_confirmation = self.parent.settings_manager.get("show_close_confirmation", True)
         self.confirmation_checkbox.setChecked(show_confirmation)
+        
+        # 重新读取悬浮窗拖动功能设置
+        floating_window_drag_enabled = self.parent.settings_manager.get("floating_window_drag_enabled", True)
+        self.floating_window_drag_enabled_checkbox.setChecked(floating_window_drag_enabled)
+        
+        # 重新读取悬浮窗拖动方式设置
+        drag_type = self.parent.settings_manager.get("floating_window_drag_type", "single_click")
+        self.drag_type_segmented.setCurrentItem(drag_type)
+        
+        # 重新读取悬浮窗始终置顶设置
+        always_on_top = self.parent.settings_manager.get("floating_window_always_on_top", True)
+        self.always_on_top_checkbox.setChecked(always_on_top)
     
     def showEvent(self, event):
         """当界面显示时调用，用于更新设置状态"""
@@ -102,19 +114,49 @@ class SettingsInterface(QWidget):
         # 由于第一张卡片包含标题、分段控制器和复选框，我们需要确保空卡片至少有相同的高度
         min_card_height = 180  # 根据第一张卡片的内容估算的最小高度
         
-        # 添加第1个空卡片，与第一张卡片大小相同
-        self.empty_card1 = CardWidget(self.scroll_content)
-        self.empty_card1.setMinimumHeight(min_card_height)
-        self.empty_layout1 = QVBoxLayout(self.empty_card1)
-        self.empty_layout1.setSpacing(12)
-        self.empty_layout1.setContentsMargins(20, 20, 20, 20)
-        # 添加与第一张卡片类似的内容结构，确保大小一致
-        self.empty_layout1.addWidget(BodyLabel("空卡片 2"))
-        # 添加占位控件，模拟第一张卡片的高度
-        from PyQt5.QtWidgets import QSpacerItem, QSizePolicy
-        spacer1 = QSpacerItem(0, 100, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        self.empty_layout1.addItem(spacer1)
-        self.scroll_layout.addWidget(self.empty_card1)
+        # 添加悬浮窗设置卡片
+        self.floating_window_card = CardWidget(self.scroll_content)
+        self.floating_window_card.setMinimumHeight(min_card_height)
+        self.floating_window_layout = QVBoxLayout(self.floating_window_card)
+        self.floating_window_layout.setSpacing(12)
+        self.floating_window_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # 标题
+        self.floating_window_title = BodyLabel("悬浮窗设置")
+        self.floating_window_layout.addWidget(self.floating_window_title)
+        
+        # 启用悬浮窗拖动功能复选框
+        self.floating_window_drag_enabled_checkbox = CheckBox("启用悬浮窗拖动功能", self.scroll_content)
+        floating_window_drag_enabled = self.parent.settings_manager.get("floating_window_drag_enabled", True)
+        self.floating_window_drag_enabled_checkbox.setChecked(floating_window_drag_enabled)
+        self.floating_window_drag_enabled_checkbox.stateChanged.connect(self.on_floating_window_drag_enabled_toggled)
+        self.floating_window_layout.addWidget(self.floating_window_drag_enabled_checkbox)
+        
+        # 拖动方式分段控制器
+        self.drag_type_segmented = SegmentedWidget(self.scroll_content)
+        self.drag_type_segmented.addItem("single_click", "单击拖动")
+        self.drag_type_segmented.addItem("double_click", "双击拖动")
+        
+        # 设置当前选中项
+        drag_type = self.parent.settings_manager.get("floating_window_drag_type", "single_click")
+        self.drag_type_segmented.setCurrentItem(drag_type)
+        self.drag_type_segmented.currentItemChanged.connect(self.on_drag_type_changed)
+        self.floating_window_layout.addWidget(self.drag_type_segmented)
+        
+        # 始终置顶复选框
+        self.always_on_top_checkbox = CheckBox("始终置顶", self.scroll_content)
+        always_on_top = self.parent.settings_manager.get("floating_window_always_on_top", True)
+        self.always_on_top_checkbox.setChecked(always_on_top)
+        self.always_on_top_checkbox.stateChanged.connect(self.on_always_on_top_toggled)
+        
+        # 复选框布局
+        self.always_on_top_layout = QHBoxLayout()
+        self.always_on_top_layout.setAlignment(Qt.AlignRight)
+        self.always_on_top_layout.addWidget(self.always_on_top_checkbox)
+        
+        self.floating_window_layout.addLayout(self.always_on_top_layout)
+        
+        self.scroll_layout.addWidget(self.floating_window_card)
         
         # 添加第2个空卡片，与第一张卡片大小相同
         self.empty_card2 = CardWidget(self.scroll_content)
@@ -156,3 +198,44 @@ class SettingsInterface(QWidget):
     def on_confirmation_toggled(self, state):
         """显示关闭确认对话框开关变化处理"""
         self.parent.settings_manager.set("show_close_confirmation", state == Qt.Checked)
+    
+    def on_floating_window_drag_enabled_toggled(self, state):
+        """悬浮窗拖动功能启用状态变化处理"""
+        # 更新设置并保存到文件
+        is_enabled = state == Qt.Checked
+        self.parent.settings_manager.set("floating_window_drag_enabled", is_enabled)
+        print(f"设置已保存：floating_window_drag_enabled = {is_enabled}")
+        
+        # 确保能正确访问悬浮窗实例
+        if hasattr(self.parent, 'heart_rate_window') and self.parent.heart_rate_window is not None:
+            # 直接更新悬浮窗的变量，确保立刻生效
+            self.parent.heart_rate_window.drag_enabled = is_enabled
+            print(f"悬浮窗变量已更新：drag_enabled = {is_enabled}")
+    
+    def on_drag_type_changed(self, item):
+        """悬浮窗拖动方式变化处理"""
+        # 更新设置并保存到文件
+        self.parent.settings_manager.set("floating_window_drag_type", item)
+        print(f"设置已保存：floating_window_drag_type = {item}")
+        
+        # 确保能正确访问悬浮窗实例
+        if hasattr(self.parent, 'heart_rate_window') and self.parent.heart_rate_window is not None:
+            # 直接更新悬浮窗的变量，确保立刻生效
+            self.parent.heart_rate_window.drag_type = item
+            print(f"悬浮窗变量已更新：drag_type = {item}")
+    
+    def on_always_on_top_toggled(self, state):
+        """悬浮窗始终置顶状态变化处理"""
+        # 更新设置并保存到文件
+        is_always_on_top = state == Qt.Checked
+        self.parent.settings_manager.set("floating_window_always_on_top", is_always_on_top)
+        print(f"设置已保存：floating_window_always_on_top = {is_always_on_top}")
+        
+        # 确保能正确访问悬浮窗实例
+        if hasattr(self.parent, 'heart_rate_window') and self.parent.heart_rate_window is not None:
+            # 直接更新悬浮窗的变量，确保立刻生效
+            self.parent.heart_rate_window.always_on_top = is_always_on_top
+            print(f"悬浮窗变量已更新：always_on_top = {is_always_on_top}")
+            # 更新窗口标志
+            self.parent.heart_rate_window.update_window_flags()
+            print("悬浮窗窗口标志已更新")
