@@ -21,7 +21,10 @@ wheels/
 *.egg
 find_bleak_bridge.py
 .trae
+sync
 dist
+build_nuitka.bat
+build.info
 
 # Virtual Environment
 venv/
@@ -47,3 +50,6 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+test_bleak.py
+test_chart.py
+test_heart_rate_crash.py

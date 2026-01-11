@@ -34,11 +34,8 @@ class DynamicLineChart(QWidget):
         # 原始数值历史记录（保存所有点的原始值，用于等比例缩放）
         self.raw_values = deque(maxlen=100)     # 存储最近100个原始值
         
-        # 平滑过渡变量
+        # 移除平滑过渡，直接更新
         self.target_max_y = 200                 # 目标MAX_Y
-        self.smoothing_factor = 0.15            # 平滑因子（0-1，越小越平滑）
-        self.update_counter = 0                 # 更新计数器
-        self.update_threshold = 3               # 更新阈值（避免频繁更新）
         
         # 平均心率相关变量
         self.average_heart_rate = 0             # 当前平均心率
@@ -82,8 +79,6 @@ class DynamicLineChart(QWidget):
         self.raw_values.append(value)
         # 添加到平均心率计算队列
         self.average_data_points.append(value)
-        # 更新Y轴范围
-        self._update_y_range()
         # 计算平均心率
         self._calculate_average_heart_rate()
     
@@ -97,17 +92,50 @@ class DynamicLineChart(QWidget):
         self.average_heart_rate = sum(self.average_data_points) / len(self.average_data_points)
     
     def _update_y_range(self):
-        """根据历史数据自动更新Y轴范围（MIN_Y固定为0，只调整MAX_Y）"""
-        if not self.auto_adjust_enabled or len(self.value_history) < 5:
+        """根据所有可见数据点更新Y轴范围，确保所有点都不冲顶"""
+        if not self.auto_adjust_enabled:
             self.target_max_y = 200
+            self.MAX_Y = self.target_max_y
+            self._recalculate_all_points()
             return
         
-        # 计算历史数据的最大值
-        max_val = max(self.value_history)
+        # 获取所有可见数据点（包括历史记录和当前显示的点）
+        all_visible_values = []
         
-        # 计算上余量
-        padding = max_val * self.padding_ratio
-        self.target_max_y = max_val + padding
+        # 1. 添加当前显示在图表上的所有点的值
+        if len(self.point_values) > 0:
+            all_visible_values.extend(self.point_values)
+        
+        # 2. 添加原始值历史记录
+        if len(self.raw_values) > 0:
+            all_visible_values.extend(self.raw_values)
+        
+        # 3. 添加数值队列中的待显示值
+        if len(self.yp_queue) > 0:
+            all_visible_values.extend(self.yp_queue)
+        
+        # 4. 如果数据点不足，使用默认范围
+        if len(all_visible_values) < 5:
+            self.target_max_y = 200
+            self.MAX_Y = self.target_max_y
+            self._recalculate_all_points()
+            return
+        
+        # 计算所有可见数据点的最大值和平均值
+        max_val = max(all_visible_values)
+        avg_val = self.average_heart_rate if self.average_heart_rate > 0 else sum(all_visible_values) / len(all_visible_values)
+        
+        # 黄金比例（0.618）：平均线应该在总高度的0.618位置
+        golden_ratio = 0.618
+        golden_based_max = avg_val / golden_ratio
+        
+        # 确保目标最大值至少比实际最大值大5%，避免点冲顶
+        # 增加安全余量到10%，确保所有点都不会冲顶
+        safe_padding = max_val * 0.10  # 10%的安全余量
+        safe_max = max_val + safe_padding
+        
+        # 取两者的最大值
+        self.target_max_y = max(golden_based_max, safe_max)
         
         # 边界检查：确保范围在合理范围内
         self._check_range_bounds()
@@ -118,25 +146,13 @@ class DynamicLineChart(QWidget):
         # 最终边界检查
         self._check_range_bounds()
         
-        # 平滑过渡：逐步更新MAX_Y
-        self._smooth_range_update()
+        # 直接更新MAX_Y，不使用平滑过渡
+        self.MAX_Y = self.target_max_y
         
-        # 如果MAX_Y发生了显著变化，重新计算所有点的Y坐标
-        if abs(self.MAX_Y - self.target_max_y) > 5:
-            self._recalculate_all_points()
+        # 重新计算所有点的Y坐标，确保每个点都显示正确
+        self._recalculate_all_points()
     
-    def _smooth_range_update(self):
-        """平滑更新Y轴范围，避免频繁缩放导致的闪烁"""
-        # 计算差值
-        diff_max = self.target_max_y - self.MAX_Y
-        
-        # 如果差值很小，直接更新
-        if abs(diff_max) < 0.5:
-            self.MAX_Y = self.target_max_y
-            return
-        
-        # 使用平滑因子逐步更新
-        self.MAX_Y += diff_max * self.smoothing_factor
+
     
     def _check_range_bounds(self):
         """边界检查机制，防止极端缩放比例"""
@@ -217,6 +233,10 @@ class DynamicLineChart(QWidget):
             self.point_lst[last_index].setY(y_pos)
             # 保存当前值到point_values
             self.point_values[last_index] = self.current_value
+        
+        # 重新计算Y轴范围，确保所有可见点都不冲顶
+        # 当最大值点离开视线时，Y轴范围会相应缩小
+        self._update_y_range()
         
         # 触发重绘
         self.update()
