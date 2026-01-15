@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu
 from PyQt5.QtGui import QPixmap
 from qfluentwidgets import TitleLabel, CardWidget, BodyLabel
 from ..resources import CP2_IMAGE
+from ..pluginHelp import showHelp
 
 class WidgetsInterface(QWidget):
     def __init__(self, parent=None):
@@ -21,17 +22,36 @@ class WidgetsInterface(QWidget):
         # 添加OBS串流卡片（卡片1）
         self.card1 = CardWidget(self)
         self.card1.setFixedHeight(120)
-        self.card1.setCursor(Qt.PointingHandCursor)
         self.card1.installEventFilter(self)
         
         card1_layout = QHBoxLayout(self.card1)
         card1_layout.setContentsMargins(20, 20, 20, 20)
         card1_layout.setSpacing(20)
         
-        card1_text = BodyLabel("<b>桌面小组件/OBS串流</b><br>提供高度自定义功能<br><span style='color: red;'>需要下载插件</span><br><span style='color: green;'>点击此卡片打开说明</span>")
+        card1_text = BodyLabel("<b>桌面小组件/OBS串流</b><br>提供高度自定义功能<br><span style='color: red;'><s>需要下载插件</s></span><br><span style='color: green;'>点击此卡片打开说明</span>")
         card1_text.setWordWrap(True)
         
+        # 创建按钮容器和按钮
+        button_container = QWidget()
+        button_layout = QVBoxLayout(button_container)
+        button_layout.setSpacing(8)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        
+        from qfluentwidgets import PushButton
+        
+        self.start_button = PushButton("启动")
+        self.start_button.setFixedWidth(125)
+        self.start_button.clicked.connect(self.on_start_button_clicked)
+        
+        self.config_button = PushButton("配置")
+        self.config_button.setFixedWidth(125)
+        self.config_button.clicked.connect(self.on_config_button_clicked)
+        
+        button_layout.addWidget(self.start_button)
+        button_layout.addWidget(self.config_button)
+        
         card1_layout.addWidget(card1_text, 1)
+        card1_layout.addWidget(button_container)
         
         # 实时心率波动图卡片（卡片2）
         self.card2 = CardWidget(self)
@@ -69,7 +89,7 @@ class WidgetsInterface(QWidget):
         if obj == self.card1:
             if event.type() == event.MouseButtonPress:
                 if event.button() == Qt.LeftButton:
-                    print("桌面小组件，OBS串流卡片被点击")
+                    self.help_window = showHelp()
                     return True
                 elif event.button() == Qt.RightButton:
                     self.show_card1_context_menu(event.globalPos())
@@ -115,3 +135,11 @@ class WidgetsInterface(QWidget):
             print("打开设置")
         elif action == action_about:
             print("显示关于信息")
+    
+    def on_start_button_clicked(self):
+        """启动按钮点击事件"""
+        print("启动OBS串流功能")
+    
+    def on_config_button_clicked(self):
+        """配置按钮点击事件"""
+        print("打开OBS串流配置")
