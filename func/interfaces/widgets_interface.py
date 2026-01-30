@@ -3,8 +3,6 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu
 from PyQt5.QtGui import QPixmap
 from qfluentwidgets import TitleLabel, CardWidget, BodyLabel
 from ..resources import CP2_IMAGE
-from ..pluginHelp import showHelp
-
 class WidgetsInterface(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,7 +26,7 @@ class WidgetsInterface(QWidget):
         card1_layout.setContentsMargins(20, 20, 20, 20)
         card1_layout.setSpacing(20)
         
-        card1_text = BodyLabel("<b>桌面小组件/OBS串流</b><br>提供高度自定义功能<br><span style='color: red;'><s>需要下载插件</s></span><br><span style='color: green;'>点击此卡片打开说明</span>")
+        card1_text = BodyLabel("<b>桌面小组件/OBS串流</b><br>提供高度自定义功能")
         card1_text.setWordWrap(True)
         
         # 创建按钮容器和按钮
@@ -89,7 +87,7 @@ class WidgetsInterface(QWidget):
         if obj == self.card1:
             if event.type() == event.MouseButtonPress:
                 if event.button() == Qt.LeftButton:
-                    self.help_window = showHelp()
+                    # 移除showHelp功能
                     return True
                 elif event.button() == Qt.RightButton:
                     self.show_card1_context_menu(event.globalPos())

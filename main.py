@@ -5,10 +5,33 @@ system_splash_hwnd = show_system_splash()
 
 # 导入其他模块
 import sys
+import base64
+from io import BytesIO
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QDialog, QSystemTrayIcon, QMenu, QAction, QSplashScreen
 from PyQt5.QtGui import QIcon, QPixmap
 from qfluentwidgets import (InfoBar, InfoBarPosition,FluentWindow, NavigationItemPosition,FluentIcon)
+
+# 导入base64编码的图标
+from func.icon import ICON_ICO
+
+# 从base64数据创建QIcon
+def get_icon_from_base64(base64_data):
+    """从base64编码数据创建QIcon"""
+    try:
+        # 解码base64字符串
+        icon_data = base64.b64decode(base64_data)
+        # 创建BytesIO对象
+        icon_stream = BytesIO(icon_data)
+        # 创建QPixmap
+        pixmap = QPixmap()
+        pixmap.loadFromData(icon_stream.getvalue())
+        # 创建QIcon
+        return QIcon(pixmap)
+    except Exception as e:
+        print(f"Error creating icon from base64: {e}")
+        return QIcon()
+
 from func.core import HeartRateMonitorCore, DeviceScanThread, HeartRateMonitorThread
 from func.interfaces import HomeInterface, HeartRateInterface, WidgetsInterface, SettingsInterface
 from func.interfaces.heart_rate_window import HeartRateWindow
@@ -24,8 +47,8 @@ class HeartRateMonitorWindow(FluentWindow):
         self.setWindowTitle("心率监测器")
         self.resize(500, 400)  # 紧凑窗口大小
         self.setFixedSize(self.size())  # 固定窗口大小，使其不可调整
-        # 设置窗口图标
-        self.setWindowIcon(QIcon("icon.ico"))
+        # 设置窗口图标（从base64资源）
+        self.setWindowIcon(get_icon_from_base64(ICON_ICO))
         
         # 初始化设置管理器
         self.settings_manager = SettingsManager()
@@ -262,8 +285,8 @@ class HeartRateMonitorWindow(FluentWindow):
         # 创建托盘图标
         self.tray_icon = QSystemTrayIcon(self)
         
-        # 设置托盘图标
-        self.tray_icon.setIcon(QIcon("icon.ico"))
+        # 设置托盘图标（从base64资源）
+        self.tray_icon.setIcon(get_icon_from_base64(ICON_ICO))
         
         # 创建菜单
         self.tray_menu = QMenu(self)
