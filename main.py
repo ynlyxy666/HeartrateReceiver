@@ -1,7 +1,13 @@
+# 导入系统级闪屏模块
+from func.splash_screen import show_system_splash, close_system_splash
+
+system_splash_hwnd = show_system_splash()
+
+# 导入其他模块
 import sys
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QDialog, QSystemTrayIcon, QMenu, QAction
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication, QDialog, QSystemTrayIcon, QMenu, QAction, QSplashScreen
+from PyQt5.QtGui import QIcon, QPixmap
 from qfluentwidgets import (InfoBar, InfoBarPosition,FluentWindow, NavigationItemPosition,FluentIcon)
 from func.core import HeartRateMonitorCore, DeviceScanThread, HeartRateMonitorThread
 from func.interfaces import HomeInterface, HeartRateInterface, WidgetsInterface, SettingsInterface
@@ -18,6 +24,8 @@ class HeartRateMonitorWindow(FluentWindow):
         self.setWindowTitle("心率监测器")
         self.resize(500, 400)  # 紧凑窗口大小
         self.setFixedSize(self.size())  # 固定窗口大小，使其不可调整
+        # 设置窗口图标
+        self.setWindowIcon(QIcon("icon.ico"))
         
         # 初始化设置管理器
         self.settings_manager = SettingsManager()
@@ -73,8 +81,6 @@ class HeartRateMonitorWindow(FluentWindow):
             self.heart_rate_window.close()
             self.heart_rate_window = None
     
-
-        
     # 扫描设备
     def start_scan(self):
         self.home_interface.scan_button.setEnabled(False)
@@ -83,6 +89,7 @@ class HeartRateMonitorWindow(FluentWindow):
         self.core.scan_thread.scan_finished.connect(self.on_scan_finished)
         self.core.scan_thread.scan_error.connect(self.on_scan_error)
         self.core.scan_thread.start()
+        
     def on_scan_finished(self, devices):        
         self.core.devices = devices
         self.home_interface.combo_box.clear()
@@ -255,8 +262,8 @@ class HeartRateMonitorWindow(FluentWindow):
         # 创建托盘图标
         self.tray_icon = QSystemTrayIcon(self)
         
-        # 设置托盘图标（使用Qt默认图标）
-        self.tray_icon.setIcon(self.style().standardIcon(1))  # 使用信息图标
+        # 设置托盘图标
+        self.tray_icon.setIcon(QIcon("icon.ico"))
         
         # 创建菜单
         self.tray_menu = QMenu(self)
@@ -384,8 +391,13 @@ class HeartRateMonitorWindow(FluentWindow):
 # 主函数
 def main():
     app = QApplication(sys.argv)
+    # 创建并显示主窗口
     window = HeartRateMonitorWindow()
     window.show()
+    
+    # 关闭系统闪屏
+    close_system_splash(system_splash_hwnd)
+
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
