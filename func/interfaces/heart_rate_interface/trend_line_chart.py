@@ -12,16 +12,13 @@ class TrendLineChart(QWidget):
         super().__init__(parent)
         
         # 常量定义
-        self.GRID_SPACE = 10  # 网格间隔
         self.MAX_Y = 200      # Y轴最大值（心率最大刻度）
         self.MIN_Y = 0        # Y轴最小值
         
         # 变量初始化
-        self.grid_xp_arr = []  # 网格竖线X坐标数组
         self.point_lst = []     # 点坐标数组
         self.point_values = []  # 每个点对应的原始值
         self.yp_queue = deque() # 数值队列
-        self.x_offset = 0       # 网格偏移量
         self.current_value = 0  # 当前数值
         
         # 自动调节Y轴范围的变量
@@ -171,10 +168,6 @@ class TrendLineChart(QWidget):
     
     def draw_chart(self):
         """绘制趋势折线图，数据添加时会逐渐被左右压扁"""
-        # 偏移量计算
-        self.x_offset += 1
-        if self.x_offset == self.GRID_SPACE:
-            self.x_offset = 0
         
         # 如果队列中有新的Y坐标点，则处理
         if len(self.yp_queue) > 0:
@@ -238,9 +231,6 @@ class TrendLineChart(QWidget):
         # 绘制浅红色背景
         painter.fillRect(0, 0, width, height, QColor(255, 255, 255))
         
-        # 绘制网格
-        self._draw_grid(painter, width, height)
-        
         # 绘制折线
         self._draw_line(painter, width, height)
         
@@ -291,30 +281,6 @@ class TrendLineChart(QWidget):
         text_y = average_y - 5  # 线的上方，距离线5px
         
         painter.drawText(text_x, text_y, avg_text)
-    
-    def _draw_grid(self, painter, width, height):
-        """绘制网格背景"""
-        # 设置网格线颜色（深红色）
-        pen = QPen(QColor(220, 220, 220))
-        pen.setWidth(1)
-        painter.setPen(pen)
-        
-        # 初始化网格竖线X坐标数组
-        self.grid_xp_arr = []
-        
-        # 计算竖线数量，确保覆盖整个宽度
-        grid_count = math.ceil(width / self.GRID_SPACE) + 1
-        
-        # 画竖线（根据偏移量实现动态效果）
-        for i in range(grid_count):
-            x_pos = self.GRID_SPACE * i - self.x_offset
-            self.grid_xp_arr.append(x_pos)
-            painter.drawLine(int(x_pos), 0, int(x_pos), height)
-        
-        # 画横线
-        for i in range(height // self.GRID_SPACE + 1):
-            y_pos = self.GRID_SPACE * i
-            painter.drawLine(0, y_pos, width, y_pos)
     
     def _draw_line(self, painter, width, height):
         """绘制折线和填充区域，与折线图配色保持一致"""

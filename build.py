@@ -9,7 +9,7 @@ c = (
     '--mingw64 ' \
     '--windows-console-mode=disable ' \
     #'--onefile ' \
-    #'--lto=yes ' \
+    '--lto=yes ' \
     '--output-dir=dist ' \
     '--output-filename=HeartRateMonitor.exe ' \
     '--remove-output ' \
@@ -18,7 +18,6 @@ c = (
     '--enable-plugin=pyqt5 ' \
     #引入插件
     '--include-package=PyQt5 ' \
-    #'--include-package=tkinter ' \
     '--include-package=PyQt5.QtCore ' \
     '--include-package=PyQt5.QtGui ' \
     '--include-package=PyQt5.QtWidgets ' \
