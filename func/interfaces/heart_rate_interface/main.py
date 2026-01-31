@@ -11,10 +11,11 @@ from .trend_chart_page import TrendChartPage
 class HeartRateInterface(QWidget):
     """心率界面 - 集成动态折线图"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, settings_manager=None):
         super().__init__(parent)
         self.setObjectName("heart_rate_interface")
         self.parent = parent
+        self.settings_manager = settings_manager
         self.setup_ui()
         self.current_device_name = None  # 存储当前连接的设备名称
         # 心率统计变量
@@ -42,7 +43,7 @@ class HeartRateInterface(QWidget):
         
         # 创建四个子页面
         self.line_chart_page = LineChartPage(self)
-        self.big_number_page = BigNumberPage(self)
+        self.big_number_page = BigNumberPage(self, self.settings_manager)
         self.dashboard_page = DashboardPage(self)
         self.trend_chart_page = TrendChartPage(self)
         
@@ -159,6 +160,11 @@ class HeartRateInterface(QWidget):
                 # 更新当前心率标签的样式
                 new_style = f"font-family: '{font.family()}'; font-size: {self.big_number_page.fixed_font_size}px; font-weight: bold; color: {color.name()};"
                 self.big_number_page.current_hr_label.setStyleSheet(new_style)
+                
+                # 保存字体设置到配置文件
+                if self.parent and hasattr(self.parent, 'settings_manager'):
+                    self.parent.settings_manager.set("big_number_font_family", font.family())
+                    self.parent.settings_manager.set("big_number_font_color", color.name())
     
     def update_status(self, status):
         """更新状态信息"""

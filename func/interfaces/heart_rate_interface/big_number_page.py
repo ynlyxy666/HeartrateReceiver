@@ -6,8 +6,9 @@ from qfluentwidgets import CardWidget, PushButton
 class BigNumberPage(QWidget):
     """大数字页面"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, settings_manager=None):
         super().__init__(parent)
+        self.settings_manager = settings_manager
         self.fixed_font_size = 72
         self.setup_ui()
     
@@ -43,7 +44,13 @@ class BigNumberPage(QWidget):
         
         # 当前心率标签（最大字体）
         self.current_hr_label = QLabel("0")
-        self.current_hr_label.setStyleSheet(f"font-family: 'Segoe UI'; font-size: {self.fixed_font_size}px; font-weight: bold; color: #333;")
+        # 从配置文件加载字体设置
+        font_family = 'Segoe UI'
+        font_color = '#333'
+        if self.settings_manager:
+            font_family = self.settings_manager.get("big_number_font_family", "Segoe UI")
+            font_color = self.settings_manager.get("big_number_font_color", "#333")
+        self.current_hr_label.setStyleSheet(f"font-family: '{font_family}'; font-size: {self.fixed_font_size}px; font-weight: bold; color: {font_color};")
         self.current_hr_label.setAlignment(Qt.AlignCenter)
         
         # 创建固定高度的容器来放置当前心率标签

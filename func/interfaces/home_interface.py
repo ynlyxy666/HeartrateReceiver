@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from qfluentwidgets import (
     CardWidget, TitleLabel, BodyLabel, SubtitleLabel,
-    ComboBox, PushButton, PrimaryPushButton
+    ComboBox, PushButton, PrimaryPushButton, IndeterminateProgressBar, ProgressBar
 )
 
 class HomeInterface(QWidget):
@@ -34,6 +34,14 @@ class HomeInterface(QWidget):
         self.scan_button.setFixedHeight(32)
         self.scan_button.clicked.connect(self.parent.start_scan)
         
+        # 添加不确定进度条（默认隐藏）
+        self.indeterminate_bar = IndeterminateProgressBar(start=False)
+        self.indeterminate_bar.hide()
+        
+        # 添加普通进度条（默认显示，100%）
+        self.progress_bar = ProgressBar()
+        self.progress_bar.setValue(100)
+        
         self.combo_box = ComboBox(self.device_card)
         self.combo_box.setPlaceholderText("请先扫描设备")
         self.combo_box.setFixedHeight(32)
@@ -56,6 +64,8 @@ class HomeInterface(QWidget):
         
         self.device_layout.addWidget(self.device_title)
         self.device_layout.addWidget(self.scan_button)
+        self.device_layout.addWidget(self.indeterminate_bar)
+        self.device_layout.addWidget(self.progress_bar)
         self.device_layout.addWidget(self.combo_box)
         self.device_layout.addLayout(self.button_layout)
         

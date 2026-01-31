@@ -1,8 +1,7 @@
 from PyQt5.QtCore import Qt, QTimer, QPoint
-from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QBrush, QPainterPath
+from PyQt5.QtGui import QPainter, QPen, QColor, QBrush, QPainterPath
 from PyQt5.QtWidgets import QWidget
 from collections import deque
-import math
 
 
 class TrendLineChart(QWidget):

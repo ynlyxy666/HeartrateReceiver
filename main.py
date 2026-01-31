@@ -7,8 +7,8 @@ system_splash_hwnd = show_system_splash()
 import sys
 import base64
 from io import BytesIO
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QDialog, QSystemTrayIcon, QMenu, QAction, QSplashScreen
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon, QPixmap
 from qfluentwidgets import (InfoBar, InfoBarPosition,FluentWindow, NavigationItemPosition,FluentIcon)
 
@@ -67,7 +67,7 @@ class HeartRateMonitorWindow(FluentWindow):
         
         # 创建界面实例
         self.home_interface = HomeInterface(self)
-        self.heart_rate_interface = HeartRateInterface(self)
+        self.heart_rate_interface = HeartRateInterface(self, self.settings_manager)
         self.widgets_interface = WidgetsInterface(self)
         self.settings_interface = SettingsInterface(self)
         
@@ -84,6 +84,9 @@ class HeartRateMonitorWindow(FluentWindow):
         
         # 初始化系统托盘图标
         self.init_tray_icon()
+        
+        # 软件启动时自动执行一次设备扫描
+        QTimer.singleShot(600, self.start_scan)
     
     def open_heart_rate_window(self):
         """打开独立的心率显示窗口"""
@@ -108,6 +111,10 @@ class HeartRateMonitorWindow(FluentWindow):
     def start_scan(self):
         self.home_interface.scan_button.setEnabled(False)
         self.home_interface.scan_button.setText("扫描中...")
+        # 显示不确定进度条，隐藏普通进度条
+        self.home_interface.progress_bar.hide()
+        self.home_interface.indeterminate_bar.show()
+        self.home_interface.indeterminate_bar.start()
         self.core.scan_thread = DeviceScanThread()
         self.core.scan_thread.scan_finished.connect(self.on_scan_finished)
         self.core.scan_thread.scan_error.connect(self.on_scan_error)
@@ -131,6 +138,12 @@ class HeartRateMonitorWindow(FluentWindow):
                 duration=3000,
                 parent=self
             )
+            # 扫描完成且找到设备，显示普通进度条（100%），隐藏不确定进度条
+            self.home_interface.indeterminate_bar.stop()
+            self.home_interface.indeterminate_bar.hide()
+            self.home_interface.progress_bar.setValue(100)
+            # 重置进度条颜色为默认颜色
+            self.home_interface.progress_bar.show()
         else:
             self.home_interface.connect_button.setEnabled(False)
             InfoBar.warning(
@@ -142,11 +155,28 @@ class HeartRateMonitorWindow(FluentWindow):
                 duration=3000,
                 parent=self
             )
+            # 扫描完成但未发现设备，显示暗红色普通进度条，隐藏不确定进度条
+            self.home_interface.indeterminate_bar.stop()
+            self.home_interface.indeterminate_bar.hide()
+            self.home_interface.progress_bar.setValue(100)
+            # 设置错误状态颜色为暗红色 C42B1C
+            from PyQt5.QtGui import QColor
+            self.home_interface.progress_bar.setCustomBarColor(QColor(196, 43, 28), QColor(160, 30, 15))
+            self.home_interface.progress_bar.show()
         
         self.home_interface.scan_button.setEnabled(True)
         self.home_interface.scan_button.setText("重新扫描")
         
     def on_scan_error(self, error):
+        # 扫描出错，显示暗红色普通进度条，隐藏不确定进度条
+        self.home_interface.indeterminate_bar.stop()
+        self.home_interface.indeterminate_bar.hide()
+        self.home_interface.progress_bar.setValue(100)
+        # 设置错误状态颜色为暗红色 C42B1C
+        from PyQt5.QtGui import QColor
+        self.home_interface.progress_bar.setCustomBarColor(QColor(196, 43, 28), QColor(160, 30, 15))
+        self.home_interface.progress_bar.show()
+        
         self.home_interface.scan_button.setEnabled(True)
         self.home_interface.scan_button.setText("重新扫描")
         InfoBar.error(
