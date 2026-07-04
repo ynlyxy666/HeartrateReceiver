@@ -1,6 +1,9 @@
-# HeartRateReceiver —— 桌面端蓝牙心率监测器
+# 听澜 · HypeBeat
+一款面向游戏主播的桌面端心率监测器。
 
-**HeartRateReceiver — A Bluetooth-based Desktop Heart Rate Monitor**
+起于乙巳元旦，名于丙午盛夏。
+
+**听澜 · HypeBeat — A Bluetooth-based Desktop Heart Rate Monitor**
 
 通过 BLE（低功耗蓝牙）实时扫描、连接心率监测设备，可视化心率数据并持久化存储。
 
@@ -47,7 +50,7 @@ A Windows desktop application that scans and connects to BLE heart rate monitors
 ## 项目结构 | Project Structure
 
 ```
-HeartrateReceiver/
+HypeBeat/
 ├── main.py                  # 程序入口（极简调用）
 ├── bin/
 │   └── app.py               # 启动逻辑（闪屏 → QApplication → 主窗口）
@@ -137,7 +140,7 @@ python main.py
 python build.py
 ```
 
-输出到 `F:/HeartrateReceiverDist/`，生成 `HeartRateMonitor.exe`
+输出到 `F:/HypeBeatDist/`，生成 `HypeBeat.exe`
 
 ### 打包安装包（Inno Setup）
 

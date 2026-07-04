@@ -1,7 +1,7 @@
 import threading
 from core.ble.scanner import DeviceScanThread, DeviceInfo
-from core.ble.monitor import HeartRateMonitorThread
-from core.device.heart_rate_core import HeartRateMonitorCore
+from core.ble.monitor import HypeBeatThread
+from core.device.heart_rate_core import HypeBeatCore
 
 
 class DeviceManager:
@@ -11,7 +11,7 @@ class DeviceManager:
         self.memory_share = memory_share
         self.signals = signals
 
-        self.core = HeartRateMonitorCore(settings_manager)
+        self.core = HypeBeatCore(settings_manager)
         self.user_disconnecting = False
         self.is_disconnecting = False
 
@@ -171,7 +171,7 @@ class DeviceManager:
             self.core.monitor_thread.join(timeout=3)
             self.core.monitor_thread = None
 
-        self.core.monitor_thread = HeartRateMonitorThread(
+        self.core.monitor_thread = HypeBeatThread(
             self.core.selected_device,
             on_heart_rate_updated=self.update_heart_rate,
             on_connection_status=self.update_status,

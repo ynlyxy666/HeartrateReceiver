@@ -6,7 +6,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 timeout = 10
 
 
-class HeartRateMonitorThread(threading.Thread):
+class HypeBeatThread(threading.Thread):
     """使用 threading.Thread 替代 QThread 的心率监测线程"""
 
     def __init__(self, device, on_heart_rate_updated=None,

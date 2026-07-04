@@ -9,8 +9,8 @@ c = (
     '--windows-console-mode=disable ' \
     #'--onefile ' \
     '--lto=yes ' \
-    '--output-dir=F:/HeartrateReceiverDist ' \
-    '--output-filename=HeartRateMonitor.exe ' \
+    '--output-dir=F:/HypeBeatDist ' \
+    '--output-filename=HypeBeat.exe ' \
     '--remove-output ' \
     '--follow-imports ' \
     '--assume-yes-for-downloads ' \

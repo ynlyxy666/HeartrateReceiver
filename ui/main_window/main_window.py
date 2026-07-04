@@ -1,5 +1,4 @@
 import sys
-import subprocess
 import webbrowser
 import os
 
@@ -23,6 +22,7 @@ from ui.pages.widget.widget_page import WidgetPage
 from ui.pages.data.data_page import DataPage
 from ui.pages.storage.storage_page import StoragePage
 from ui.services.app_signals import AppSignals
+from help.helphtml import show_help_async
 from core.device.device_manager import DeviceManager
 from persistence.manager.data_manager import DataManager
 from persistence.manager.file_cleaner import FileCleaner
@@ -32,10 +32,10 @@ from system.monitor.system_monitor import SystemMonitor
 from system.monitor.storage_service import StorageService
 
 
-class HeartRateMonitorWindow(FluentWindow):
+class HypeBeatWindow(FluentWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("心率监测器")
+        self.setWindowTitle("听澜 · HypeBeat")
         self.resize(900, 700)
         self.setWindowIcon(get_icon_from_base64(ICON_ICO))
 
@@ -119,7 +119,7 @@ class HeartRateMonitorWindow(FluentWindow):
         self.helpButton = NavigationToolButton(FluentIcon.QUESTION, self)
         self.helpButton.installEventFilter(ToolTipFilter(self.helpButton, showDelay=300, position=ToolTipPosition.TOP))
         self.helpButton.setToolTip("帮助")
-        self.helpButton.clicked.connect(self.on_help_button_clicked)
+        self.helpButton.clicked.connect(show_help_async)
         self.navigationInterface.addWidget(
             routeKey='helpButton',
             widget=self.helpButton,
@@ -158,7 +158,7 @@ class HeartRateMonitorWindow(FluentWindow):
 
         self.setWindowIcon(get_icon_from_base64(ICON_ICO))
 
-        self.setWindowTitle("心率监测器")
+        self.setWindowTitle("听澜 · HypeBeat")
 
         self.titleBar.maxBtn.hide()
         self.titleBar.setDoubleClickEnabled(False)
@@ -198,9 +198,6 @@ class HeartRateMonitorWindow(FluentWindow):
 
     def on_custom_button_clicked(self):
         webbrowser.open("https://www.nstechcod.top/")
-
-    def on_help_button_clicked(self):
-        subprocess.Popen(["python", "helphtml.py"], cwd="d:\\HeartrateReceiver")
 
     def closeEvent(self, event):
         show_confirmation = self.settings_manager.get("show_close_confirmation", True)

@@ -2,10 +2,10 @@
 ; 有关创建 Inno Setup 脚本文件的详细信息，请参阅帮助文档！
 ; 仅供非商业使用
 
-#define MyAppName "HeartRateReceiver"
+#define MyAppName "听澜 · HypeBeat"
 #define MyAppVersion "2.0 Preview"
 #define MyAppPublisher "EnderHack"
-#define MyAppExeName "HeartRateMonitor.exe"
+#define MyAppExeName "HypeBeat.exe"
 #define MyAppAssocName "心率导出数据"
 #define MyAppAssocExt ".hrof"
 #define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt
@@ -33,9 +33,9 @@ DisableProgramGroupPage=yes
 ; 取消注释以下行以在非管理安装模式下运行 (仅为当前用户安装)。
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=D:\HeartrateReceiver\dist
-OutputBaseFilename=HeartRateReceiver
-SetupIconFile=D:\HeartrateReceiver\icon.ico
+OutputDir=D:\HypeBeat\dist
+OutputBaseFilename=HypeBeat
+SetupIconFile=D:\HypeBeat\icon.ico
 SolidCompression=yes
 WizardStyle=modern dynamic
 
@@ -76,8 +76,8 @@ Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "D:\HeartrateReceiver\dist\main.dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\HeartrateReceiver\dist\main.dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\HypeBeat\dist\main.dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\HypeBeat\dist\main.dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 注意：不要在任何共享系统文件上使用 "Flags: ignoreversion" 
 
 [Registry]

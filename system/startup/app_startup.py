@@ -119,7 +119,7 @@ def startup_check():
     def is_single_instance():
         """检测是否只有一个实例在运行"""
         if sys.platform == 'win32':
-            mutex_name = "Global\\HeartRateMonitorMutex"
+            mutex_name = "Global\\HypeBeatMutex"
             mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
             last_error = ctypes.windll.kernel32.GetLastError()
 

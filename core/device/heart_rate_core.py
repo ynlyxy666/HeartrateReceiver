@@ -1,4 +1,4 @@
-class HeartRateMonitorCore:
+class HypeBeatCore:
     def __init__(self, settings_manager=None):
         self.devices = []
         self.selected_device = None

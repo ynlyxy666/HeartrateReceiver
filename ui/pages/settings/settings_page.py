@@ -260,7 +260,7 @@ class SettingsPage(QFrame):
         self.frameLayout.addWidget(card)
         
         current_year = datetime.now().year
-        self.softinfoCard = PrimaryPushSettingCard("检查更新", FluentIcon.INFO, "关于HeartRateReceiver", f"©{current_year} EnderHack & SilentStudio\nAll rights reserved.", self.frame)
+        self.softinfoCard = PrimaryPushSettingCard("检查更新", FluentIcon.INFO, "关于听澜 · HypeBeat", f"©{current_year} EnderHack & SilentStudio\nAll rights reserved.", self.frame)
         self.frameLayout.addWidget(self.softinfoCard)
         
         self.frameLayout.addStretch()
