@@ -1,4 +1,3 @@
-from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import MessageBoxBase, SubtitleLabel, PushButton, CheckBox, PrimaryPushButton
 
 

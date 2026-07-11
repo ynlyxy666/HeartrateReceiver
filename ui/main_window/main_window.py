@@ -1,6 +1,5 @@
 import sys
 import webbrowser
-import os
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
@@ -25,7 +24,6 @@ from ui.services.app_signals import AppSignals
 from help.helphtml import show_help_async
 from core.device.device_manager import DeviceManager
 from persistence.manager.data_manager import DataManager
-from persistence.manager.file_cleaner import FileCleaner
 from system.memory.shared_memory import MemoryShareManager
 from system.settings.settings_manager import SettingsManager
 from system.monitor.system_monitor import SystemMonitor
@@ -101,8 +99,7 @@ class HypeBeatWindow(FluentWindow):
             self, 
             self.signals, 
             self.storage_service, 
-            self.system_monitor,
-            self.settings_manager
+            self.system_monitor
         )
         self.addSubInterface(self.storagePage, FluentIcon.SPEED_HIGH, "存储和性能")
 
@@ -139,15 +136,7 @@ class HypeBeatWindow(FluentWindow):
         self.signals.scan_requested.connect(self.device_manager.start_scan)
         self.signals.connect_requested.connect(self.device_manager.connect_device)
         self.signals.disconnect_requested.connect(self.device_manager.disconnect_device)
-
-        if self.settings_manager.get("auto_clean_on_startup", True):
-            print("[AutoClean] 启动时自动清理小文件")
-            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data')
-            cleaned = FileCleaner.clean_small_files(data_dir)
-            if cleaned > 0:
-                print(f"[AutoClean] 清理了 {cleaned} 个小文件")
-            else:
-                print("[AutoClean] 没有需要清理的小文件")
+        self.signals.navigate_to_storage.connect(lambda: self.switchTo(self.storagePage))
 
     def initWindow(self):
         window_size = (900, 700)

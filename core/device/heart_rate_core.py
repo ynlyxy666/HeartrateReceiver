@@ -25,11 +25,3 @@ class HypeBeatCore:
     
     def is_device_supported(self, device):
         return True
-    
-    def cleanup(self):
-        if self.monitor_thread:
-            self.monitor_thread.stop()
-            self.monitor_thread.wait()
-        if self.scan_thread and self.scan_thread.isRunning():
-            self.scan_thread.stop()
-            self.scan_thread.wait()

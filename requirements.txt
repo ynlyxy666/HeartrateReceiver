@@ -5,3 +5,4 @@ PyQt6-Frameless-Window
 bleak
 psutil
 pywin32
+matplotlib

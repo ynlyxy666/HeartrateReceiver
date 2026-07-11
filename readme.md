@@ -20,7 +20,7 @@ A Windows desktop application that scans and connects to BLE heart rate monitors
 | **动态折线图**    | 自绘实时滚动折线图，支持自动 Y 轴缩放（黄金比例算法）、网格、平均心率线         |
 | **趋势图**      | 数据从左到右逐渐压扁，展示完整历史趋势                           |
 | **悬浮窗**      | 无边框置顶小窗口，实时显示心率，支持单击/双击拖动                     |
-| **数据持久化**    | CSV 格式存储心率数据，自动分文件（每 1000 点一个文件），批量写入（50 条一批） |
+| **数据持久化**    | SQLite 数据库存储心率数据，批量写入（50 条一批） |
 | **系统托盘**     | 后台运行，托盘菜单快捷操作                                 |
 | **自动重连**     | 设备断开后自动重连，可配置重连次数和间隔                          |
 | **启动闪屏**     | Win32 原生闪屏，在 PyQt 加载前立即弹出                     |
@@ -78,7 +78,7 @@ HypeBeat/
 │   └── dialogs/             # 对话框（关闭确认等）
 ├── persistence/
 │   └── manager/
-│       ├── data_manager.py  # 数据持久化（CSV 批量写入）
+│       ├── data_manager.py  # 数据持久化（SQLite 批量写入）
 │       └── file_cleaner.py  # 小文件清理
 ├── system/
 │   ├── startup/
@@ -113,7 +113,7 @@ main.py → bin/app.py
   ├── [3] HeartRateMonitorWindow.__init__()
   │       ├── 系统托盘
   │       ├── 设置管理器（读取 ~/.heartrate_monitor/settings.json）
-  │       ├── 数据管理器（创建 data/heart_rate_*.hrof）
+  │       ├── 数据管理器（初始化 SQLite 数据库）
   │       ├── 共享内存（mmap 初始化）
   │       ├── 设备管理器
   │       ├── 获取系统主题色并应用
@@ -148,20 +148,18 @@ python build.py
 
 ***
 
-## 数据格式 | Data Format
+## 数据存储 | Data Storage
 
-心率数据以 `.hrof`（HeartRate Output File）后缀存储，实际为 CSV 格式：
+心率数据使用 SQLite 数据库存储，位于项目根目录的 `hypebeat.db`：
 
-```
-2024-01-01 12:00:00.000, 72
-2024-01-01 12:00:01.000, 75
-2024-01-01 12:00:02.000, 73
-...
-```
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 自增主键 |
+| `ts` | INTEGER | Unix 毫秒时间戳 |
+| `hr` | INTEGER | 心率值 (BPM) |
 
-- 每文件最多 1000 个数据点，超出自动创建新文件
-- 每收集 50 条数据批量写入一次磁盘
-- 存储位置：`项目根目录/data/`
+- 每收集 50 条数据批量写入一次数据库（WAL 模式）
+- 数据库自动建表，带时间戳索引
 
 ***
 

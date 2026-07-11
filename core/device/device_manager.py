@@ -1,5 +1,5 @@
 import threading
-from core.ble.scanner import DeviceScanThread, DeviceInfo
+from core.ble.scanner import DeviceScanThread
 from core.ble.monitor import HypeBeatThread
 from core.device.heart_rate_core import HypeBeatCore
 
@@ -14,6 +14,7 @@ class DeviceManager:
         self.core = HypeBeatCore(settings_manager)
         self.user_disconnecting = False
         self.is_disconnecting = False
+        self._connecting = False
 
         self.discovered_devices = {}
         self.MAX_DEVICES = 100
@@ -117,12 +118,18 @@ class DeviceManager:
         if self.core.monitor_thread and self.core.monitor_thread.is_alive():
             return
 
+        if self._connecting:
+            return
+
         self.signals.ui_scan_state_changed.emit(True, "重新扫描")
 
     def on_scan_error(self, error):
         self.signals.ui_progress_state_changed.emit(False, True)
 
         if self.core.monitor_thread and self.core.monitor_thread.is_alive():
+            return
+
+        if self._connecting:
             return
 
         self.signals.ui_scan_state_changed.emit(True, "重新扫描")
@@ -164,6 +171,7 @@ class DeviceManager:
             self.signals.info_bar_requested.emit("warn", "设备不支持", "请重新选择")
             return
 
+        self._connecting = True
         self.stop_scan()
 
         if self.core.monitor_thread:
@@ -184,6 +192,8 @@ class DeviceManager:
         self.signals.ui_checkbox_enabled_changed.emit(False)
         self.signals.ui_list_enabled_changed.emit(False)
         self.signals.device_connecting.emit()
+
+        self._connecting = False
 
     def on_monitor_error(self, error):
         if not self.user_disconnecting and self.core.auto_reconnect_enabled:
@@ -232,22 +242,27 @@ class DeviceManager:
         was_user_disconnecting = self.user_disconnecting
         self.user_disconnecting = True
 
-        if self.core.monitor_thread:
-            self.core.monitor_thread.stop()
-            self.core.monitor_thread.join(timeout=3)
-            self.core.monitor_thread = None
+        try:
+            if self.core.monitor_thread:
+                self.core.monitor_thread.stop()
+                # 避免在后台线程（错误回调）中 join 自己 → 防止 RuntimeError
+                if self.core.monitor_thread != threading.current_thread():
+                    self.core.monitor_thread.join(timeout=3)
+                self.core.monitor_thread = None
 
-        self._cancel_reconnect_timer()
+            self._cancel_reconnect_timer()
 
-        self.signals.ui_connect_state_changed.emit(True, False)
-        self.signals.ui_scan_state_changed.emit(True, "重新扫描")
-        self.signals.ui_checkbox_enabled_changed.emit(True)
-        self.signals.ui_list_enabled_changed.emit(True)
-        self.update_status("已断开连接")
-
-        self.user_disconnecting = False
-        self.is_disconnecting = False
-        self.core.reconnect_attempts = 0
+            self.signals.ui_connect_state_changed.emit(True, False)
+            self.signals.ui_scan_state_changed.emit(True, "重新扫描")
+            self.signals.ui_checkbox_enabled_changed.emit(True)
+            self.signals.ui_list_enabled_changed.emit(True)
+            self.update_status("已断开连接")
+        except Exception as e:
+            print(f"[DeviceManager] disconnect_device 出错: {e}")
+        finally:
+            self.user_disconnecting = False
+            self.is_disconnecting = False
+            self.core.reconnect_attempts = 0
 
         if not was_user_disconnecting:
             print(f"[DeviceManager] 设备意外断开，自动恢复扫描")

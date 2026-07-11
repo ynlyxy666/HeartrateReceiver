@@ -41,10 +41,13 @@ test/
 data/
 bak/
 test/
-
+preparedata/
 # OS
 .DS_Store
 Thumbs.db
+.dbg/
+hypebeat.db-*
+migrate*
 
 # Logs
 *.log
@@ -63,3 +66,5 @@ tkinter_DigitalWatch.pyw
 count_lines.py
 123.md
 hr_anomaly_detection.py
+.dbg/debug_logs.json
+.dbg/debug_logs2.json

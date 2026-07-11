@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from bleak import BleakClient, BleakScanner
+from bleak import BleakScanner
 
 HEART_RATE_SERVICE_UUID = "180d"
 

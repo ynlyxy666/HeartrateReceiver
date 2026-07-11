@@ -1,9 +1,16 @@
 from PyQt6.QtCore import Qt, QTimer, QPoint
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu
-from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QPixmap
 from collections import deque
 from qfluentwidgets import CardWidget
-from ui.charts.line_chart.dynamic_line_chart import DynamicLineChart
+
+import matplotlib
+matplotlib.use('QtAgg')
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from matplotlib.font_manager import FontProperties
+
+# 字体设置：直接指定字体文件，确保中文字符正常渲染
+FONT_CN = FontProperties(fname=r'C:\Windows\Fonts\msyh.ttc', size=9)
 
 
 class HeartRateWindow(QMainWindow):
@@ -52,6 +59,7 @@ class HeartRateWindow(QMainWindow):
             }
         """)
         self.setCentralWidget(self.central_widget)
+        self.data = deque(maxlen=100)
         self.setup_ui()
 
         if self.signals:
@@ -103,8 +111,13 @@ class HeartRateWindow(QMainWindow):
 
         self.chart_layout.addLayout(self.second_row_layout)
 
-        self.chart = DynamicLineChart()
-        self.chart_layout.addWidget(self.chart)
+        # matplotlib 画布
+        self.fig = Figure()
+        self.fig.patch.set_facecolor('white')
+        self.fig.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.99)
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.chart_layout.addWidget(self.canvas)
 
         self.main_layout.addWidget(self.chart_card)
 
@@ -200,10 +213,70 @@ class HeartRateWindow(QMainWindow):
         print(f"悬浮窗设置已更新：拖动功能={'启用' if self.drag_enabled else '禁用'}，拖动方式={self.drag_type}，始终置顶={'是' if self.always_on_top else '否'}")
 
     def update_heart_rate(self, heart_rate):
-        self.chart.add_value(heart_rate)
+        self.data.append(heart_rate)
         self.left_label.setText(f"HR  {heart_rate}")
-        self.top_right_label.setText(f"{int(self.chart.MAX_Y)}")
         self.bottom_right_label.setText("0")
+        self._refresh_chart()
+
+    def _refresh_chart(self):
+        """重绘 matplotlib 图表"""
+        self.ax.clear()
+
+        data = list(self.data)
+        if data:
+            x = list(range(len(data)))
+
+            # 绘制红色折线
+            self.ax.plot(x, data, color='#DC0909', linewidth=1.5, zorder=3)
+
+            # 绘制半透明红色填充区域
+            self.ax.fill_between(x, data, 0, color='#FF8F8F', alpha=0.15, zorder=2)
+
+            # 如果数据点 >= 5 个：计算平均值，绘制蓝色虚线
+            if len(data) >= 5:
+                avg = sum(data) / len(data)
+                self.ax.axhline(y=avg, color='#003C87', linewidth=1, linestyle='--', zorder=4)
+                self.ax.annotate(
+                    f'平均 {avg:.1f}',
+                    xy=(x[-1], avg),
+                    xytext=(0, 0),
+                    textcoords='offset points',
+                    fontsize=9,
+                    color='#003C87',
+                    ha='right',
+                    va='bottom',
+                    fontproperties=FONT_CN
+                )
+
+            # Y轴自动缩放
+            actual_max = max(data)
+            avg_for_scale = avg if len(data) >= 5 else 0
+            max_y = max(actual_max * 1.15, avg_for_scale * 1.618, 30)
+            max_y = min(round(max_y / 10) * 10, 250)
+            self.ax.set_ylim(0, max_y)
+            self.top_right_label.setText(f"{int(max_y)}")
+
+        # X轴固定范围
+        self.ax.set_xlim(0, 99)
+
+        # 浅灰色外框
+        for spine in self.ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color('#E0E0E0')
+            spine.set_linewidth(1)
+
+        # 移除刻度
+        self.ax.tick_params(
+            which='both',
+            bottom=False, top=False, left=False, right=False,
+            labelbottom=False, labelleft=False
+        )
+
+        # 白色背景
+        self.ax.set_facecolor('white')
+        self.fig.patch.set_facecolor('white')
+
+        self.canvas.draw()
 
     def _on_device_connected(self, device_name):
         """通过 device_connected 信号接收设备名称，避免穿透 parent"""

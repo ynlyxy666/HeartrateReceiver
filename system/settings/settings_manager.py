@@ -26,8 +26,6 @@ class SettingsManager:
             # 大数字卡片设置
             "big_number_font_family": "Segoe UI",  # 大数字卡片字体家族
             "big_number_font_color": "#333",  # 大数字卡片字体颜色
-            # 存储设置
-            "auto_clean_on_startup": True  # 每次启动时检查并清理
         }
         
         # 确保设置目录存在
@@ -68,11 +66,6 @@ class SettingsManager:
     def set(self, key, value):
         """设置设置值"""
         self.settings[key] = value
-        self.save_settings()
-    
-    def reset(self):
-        """重置设置为默认值"""
-        self.settings = self.default_settings.copy()
         self.save_settings()
     
     def load_device_names(self):

@@ -1,8 +1,7 @@
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from qfluentwidgets import SubtitleLabel, TitleLabel, BodyLabel, PushButton, PrimaryPushButton, CardWidget, CheckBox, IndeterminateProgressBar, ProgressBar, ListWidget, ToolTipFilter, ToolTipPosition, InfoBar, InfoBarPosition
-from ui.charts.line_chart.line_chart_page import LineChartPage
 from ui.charts.trend_chart.trend_chart_page import TrendChartPage
 
 
@@ -59,9 +58,10 @@ class HomePage(QFrame):
 
         self.leftLayout.addWidget(self.listWidget)
 
-        from qfluentwidgets import CaptionLabel
-        self.infoLabel = CaptionLabel("为提升您的使用体验，程序会在本地缓存设备名称。")
-        self.infoLabel.setStyleSheet("color: gray;")
+        self.infoLabel = QLabel("为提升您的使用体验，程序会在本地缓存设备名称。")
+        self.infoLabel.setStyleSheet("color: gray; font-size: 12px;")
+        self.infoLabel.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        self.infoLabel.linkActivated.connect(self._on_info_label_link_clicked)
         self.leftLayout.addWidget(self.infoLabel)
 
         self.buttonLayout = QHBoxLayout()
@@ -85,22 +85,17 @@ class HomePage(QFrame):
         self.rightContainerLayout.setContentsMargins(0, 0, 0, 0)
         self.rightContainerLayout.setSpacing(20)
 
-        self.rightTopCard = CardWidget(self.rightContainer)
-        self.rightTopLayout = QVBoxLayout(self.rightTopCard)
-        self.rightTopLayout.setContentsMargins(0, 0, 0, 0)
-
-        self.lineChartPage = LineChartPage()
-        self.rightTopLayout.addWidget(self.lineChartPage)
-
-        self.rightBottomCard = CardWidget(self.rightContainer)
-        self.rightBottomLayout = QVBoxLayout(self.rightBottomCard)
-        self.rightBottomLayout.setContentsMargins(0, 0, 0, 0)
+        self.chartCard = CardWidget(self.rightContainer)
+        self.chartLayout = QVBoxLayout(self.chartCard)
+        self.chartLayout.setContentsMargins(0, 0, 0, 0)
 
         self.trendChartPage = TrendChartPage()
-        self.rightBottomLayout.addWidget(self.trendChartPage)
+        self.chartLayout.addWidget(self.trendChartPage)
 
-        self.rightContainerLayout.addWidget(self.rightTopCard, 1)
-        self.rightContainerLayout.addWidget(self.rightBottomCard, 1)
+        self.emptyCard = CardWidget(self.rightContainer)
+
+        self.rightContainerLayout.addWidget(self.chartCard, 1)
+        self.rightContainerLayout.addWidget(self.emptyCard, 2)
 
         self.hBoxLayout.addWidget(self.leftCard, 1)
         self.hBoxLayout.addWidget(self.rightContainer, 1)
@@ -129,6 +124,7 @@ class HomePage(QFrame):
 
     def _clear_device_list(self):
         self.listWidget.clear()
+        self._update_info_label()
 
     def _get_device_display_text(self, address, name):
         return self._resolve_name(address, name)
@@ -140,6 +136,7 @@ class HomePage(QFrame):
         self.listWidget.addItem(display_text)
         self._sort_device_list()
         self.connectButton.setEnabled(True)
+        self._update_info_label()
 
     def _on_device_updated(self, device_info):
         address = device_info.address
@@ -208,39 +205,17 @@ class HomePage(QFrame):
         self.disconnectButton.setEnabled(disconnect_enabled)
 
     def _on_heart_rate_updated(self, heart_rate):
-        if hasattr(self.lineChartPage, 'chart'):
-            chart = self.lineChartPage.chart
-            chart.add_value(heart_rate)
-
-            if hasattr(self.lineChartPage, 'top_right_label') and hasattr(self.lineChartPage, 'bottom_right_label'):
-                if hasattr(chart, 'MAX_Y') and hasattr(chart, 'MIN_Y'):
-                    self.lineChartPage.top_right_label.setText(f"{chart.MAX_Y}")
-                    self.lineChartPage.bottom_right_label.setText(f"{chart.MIN_Y}")
-                else:
-                    self.lineChartPage.top_right_label.setText("200")
-                    self.lineChartPage.bottom_right_label.setText("0")
-
-        if hasattr(self, 'trendChartPage'):
-            self.trendChartPage.update_heart_rate(heart_rate)
+        self.trendChartPage.update_heart_rate(heart_rate)
 
     def _on_connection_status_changed(self, status):
         if "设备连接成功" in status:
-            if hasattr(self.lineChartPage, 'chart'):
-                self.lineChartPage.chart.set_receiving_state(True)
             self.connectionText.setText("设备已连接")
         elif "设备已断开连接" in status or "已断开连接" in status:
-            if hasattr(self.lineChartPage, 'chart'):
-                self.lineChartPage.chart.set_receiving_state(False)
             self.connectionText.setText("设备已断开连接")
         elif "请先连接设备" in status:
             self.connectionText.setText("请先连接设备")
         else:
             self.connectionText.setText(status)
-
-        if "设备连接成功" in status:
-            self.lineChartPage.right_label.setText("已连接")
-        elif "设备已断开连接" in status or "请先连接设备" in status:
-            self.lineChartPage.right_label.setText("请先连接设备")
 
     def _on_info_bar_requested(self, info_type, title, content):
         parent = self.window()
@@ -252,3 +227,18 @@ class HomePage(QFrame):
             InfoBar.info(title=title, content=content, orient=Qt.Orientation.Horizontal, isClosable=True, position=InfoBarPosition.TOP, duration=3000, parent=parent)
         elif info_type == "success":
             InfoBar.success(title=title, content=content, orient=Qt.Orientation.Horizontal, isClosable=True, position=InfoBarPosition.TOP, duration=3000, parent=parent)
+
+    def _update_info_label(self):
+        """根据设备列表数量更新 infoLabel 文字"""
+        count = self.listWidget.count()
+        if count > 3:
+            self.infoLabel.setText(
+                '设备太多眼花缭乱？'
+                '<a href="storage" style="color: #009FAA; text-decoration: none;">设置排除项</a>'
+            )
+        else:
+            self.infoLabel.setText("为提升您的使用体验，程序会在本地缓存设备名称。")
+
+    def _on_info_label_link_clicked(self, link):
+        if link == "storage" and self.signals:
+            self.signals.navigate_to_storage.emit()

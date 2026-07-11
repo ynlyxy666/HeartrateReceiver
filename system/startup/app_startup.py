@@ -158,10 +158,10 @@ def start():
     # 必须在创建任何窗口前调用，保证与后续PyQt6的DPI行为一致
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
-    except:
+    except Exception:
         try:
             ctypes.windll.user32.SetProcessDPIAware()
-        except:
+        except Exception:
             pass
 
     syshwnd = show_system_splash(pre_aware_width)

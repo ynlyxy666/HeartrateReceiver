@@ -44,7 +44,9 @@ class AppSignals(QObject):
 
     # 磁盘/存储
     disk_space_updated = pyqtSignal(float, float, float)  # total_gb, used_gb, percent
-    file_list_updated = pyqtSignal(list, int, str, int)  # files, count, size_str, small_files_count
+
+    # 导航
+    navigate_to_storage = pyqtSignal()
 
     # 设置变更
     settings_changed = pyqtSignal(str, object)

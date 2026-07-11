@@ -1,8 +1,7 @@
-import os
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QListWidgetItem
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QRectF, QTimer
 from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath
-from qfluentwidgets import CardWidget, SubtitleLabel, BodyLabel, PushButton, CheckBox, ListWidget, ToolButton, FluentIcon
+from qfluentwidgets import CardWidget, SubtitleLabel, BodyLabel
 
 
 class StorageBar(QFrame):
@@ -39,14 +38,12 @@ class StorageBar(QFrame):
                 current_x += seg_width
 
 class StoragePage(QFrame):
-    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None, settings_manager=None):
+    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None):
         super().__init__(parent)
-        self.parent = parent
         self.signals = signals
         self.storage_service = storage_service
         self.system_monitor = system_monitor
-        self.settings_manager = settings_manager
-        
+
         self.setObjectName("storagePage")
 
         self.mainLayout = QHBoxLayout(self)
@@ -99,59 +96,6 @@ class StoragePage(QFrame):
         self.diskSpaceLayout.addStretch()
 
         self.leftLayout.addWidget(self.diskSpaceCard)
-
-        self.dataManagementCard = CardWidget(self)
-        self.dataManagementLayout = QVBoxLayout(self.dataManagementCard)
-        self.dataManagementLayout.setContentsMargins(15, 12, 15, 12)
-        self.dataManagementLayout.setSpacing(8)
-
-        self.dataManagementTitle = SubtitleLabel("数据管理", self.dataManagementCard)
-        self.dataManagementLayout.addWidget(self.dataManagementTitle)
-
-        self.dataManagementContent = BodyLabel("这里显示你所有的心率数据文件", self.dataManagementCard)
-        self.dataManagementLayout.addWidget(self.dataManagementContent)
-
-        self.fileListWidget = ListWidget(self.dataManagementCard)
-        self.fileListWidget.setSelectRightClickedRow(True)
-
-        self.fileInfoText = BodyLabel("", self.dataManagementCard)
-
-        self.cleanSuggestionLayout = QHBoxLayout()
-        self.cleanSuggestionText = BodyLabel("", self.dataManagementCard)
-        self.cleanButton = PushButton("立即清理", self.dataManagementCard)
-        self.cleanButton.clicked.connect(self.clean_small_files)
-
-        self.cleanSuggestionLayout.addWidget(self.cleanSuggestionText)
-        self.cleanSuggestionLayout.addStretch()
-        self.cleanSuggestionLayout.addWidget(self.cleanButton)
-
-        self.fileRefreshTimer = QTimer(self)
-        self.fileRefreshTimer.timeout.connect(self.refresh_file_list)
-
-        self.autoCleanCheckBox = CheckBox("每次启动时检查并清理", self.dataManagementCard)
-        if self.settings_manager:
-            self.autoCleanCheckBox.setChecked(self.settings_manager.get("auto_clean_on_startup", True))
-        self.autoCleanCheckBox.stateChanged.connect(self.on_auto_clean_checkbox_changed)
-
-        self.dataManagementLayout.addWidget(self.fileListWidget)
-        self.dataManagementLayout.addWidget(self.fileInfoText)
-        self.dataManagementLayout.addLayout(self.cleanSuggestionLayout)
-        self.dataManagementLayout.addWidget(self.autoCleanCheckBox)
-
-        self.dataManagementLayout.addSpacing(8)
-
-        self.dataDirLayout = QHBoxLayout()
-        self.dataDirLabel = QLabel(f"数据目录：{self.storage_service.get_data_dir() if self.storage_service else 'data'}", self.dataManagementCard)
-        self.openDirButton = ToolButton(FluentIcon.FOLDER, self.dataManagementCard)
-        self.openDirButton.clicked.connect(self.open_data_directory)
-        self.dataDirLayout.addWidget(self.dataDirLabel)
-        self.dataDirLayout.addStretch()
-        self.dataDirLayout.addWidget(self.openDirButton)
-        self.dataManagementLayout.addLayout(self.dataDirLayout)
-
-        self.dataManagementLayout.addStretch()
-
-        self.leftLayout.addWidget(self.dataManagementCard)
 
         self.rightLayout = QVBoxLayout()
         self.rightLayout.setSpacing(10)
@@ -248,7 +192,6 @@ class StoragePage(QFrame):
 
         if self.signals:
             self.signals.disk_space_updated.connect(self.on_disk_space_updated)
-            self.signals.file_list_updated.connect(self.on_file_list_updated)
             self.signals.cpu_info_updated.connect(self.update_cpu_info)
             self.signals.memory_info_updated.connect(self.update_memory_info)
 
@@ -258,39 +201,22 @@ class StoragePage(QFrame):
         print("[StoragePage] 执行启动时初始刷新")
         if self.storage_service:
             self.storage_service.emit_disk_space_info()
-            self.storage_service.refresh_file_list()
         if self.system_monitor:
             self.system_monitor.start_monitoring()
 
-    def refresh_file_list(self):
-        if self.storage_service:
-            self.storage_service.refresh_file_list()
-
-    def clean_small_files(self):
-        if self.storage_service:
-            self.storage_service.clean_small_files()
-
-    def on_auto_clean_checkbox_changed(self, state):
-        if self.settings_manager:
-            self.settings_manager.set("auto_clean_on_startup", state == 2)
-
-    def open_data_directory(self):
-        if self.storage_service:
-            self.storage_service.open_data_directory()
-
     def on_disk_space_updated(self, total_gb, used_gb, used_percent):
         self.diskSpaceTotalLabel.setText(f"共 {total_gb} GB")
-        
+
         if self.storage_service and total_gb > 0:
             app_size_gb, app_percent = self.storage_service.get_app_size_info(total_gb)
         else:
             app_size_gb, app_percent = 0, 0
-            
+
         orange_percent = app_percent
         cyan_percent = used_percent - app_percent
         if cyan_percent < 0:
             cyan_percent = 0
-            
+
         self.diskSpaceBar.segments = [
             {'percent': orange_percent, 'color': QColor(255, 165, 0)},
             {'percent': cyan_percent, 'color': QColor(0, 159, 170)}
@@ -304,33 +230,13 @@ class StoragePage(QFrame):
         self.otherDataLabel.setText(f"其他数据 {other_data_gb} GB  ")
         self.freeSpaceLabel.setText(f"可用 {free_space} GB")
 
-    def on_file_list_updated(self, files, file_count, size_str, small_files_count):
-        self.fileListWidget.clear()
-        
-        if files:
-            for file in files:
-                item = QListWidgetItem(file)
-                self.fileListWidget.addItem(item)
-            self.fileInfoText.setText(f"共{file_count}个文件，占用{size_str}磁盘空间")
-            self.cleanSuggestionText.setText(f"检测到{small_files_count}个建议清理的文件")
-        else:
-            item = QListWidgetItem("data文件夹为空")
-            self.fileListWidget.addItem(item)
-            self.fileInfoText.setText("")
-            self.cleanSuggestionText.setText("")
-
     def hideEvent(self, event):
         super().hideEvent(event)
-        self.fileRefreshTimer.stop()
         if self.system_monitor:
             self.system_monitor.stop_monitoring()
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.fileRefreshTimer.start(5000)
-        if self.settings_manager:
-            self.settings_manager.settings = self.settings_manager.load_settings()
-            self.autoCleanCheckBox.setChecked(self.settings_manager.get("auto_clean_on_startup", True))
         if self.system_monitor:
             self.system_monitor.start_monitoring()
 
@@ -377,14 +283,8 @@ class StoragePage(QFrame):
         page_width = self.width()
         page_height = self.height()
         card_width = page_width // 2 - 20
-        disk_space_card_height = card_width // 3
-        available_height = page_height - 40 - 10 - disk_space_card_height
 
-        self.diskSpaceCard.setFixedSize(card_width, disk_space_card_height)
-        if available_height > 0:
-            self.dataManagementCard.setFixedSize(card_width, available_height)
-        else:
-            self.dataManagementCard.setFixedSize(card_width, 100)
+        self.diskSpaceCard.setFixedSize(card_width, page_height - 40)
 
         total_right_height = page_height - 40
         treasure_box_card_height = max(total_right_height // 2, 1)
