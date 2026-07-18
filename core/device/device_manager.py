@@ -1,4 +1,13 @@
 import threading
+
+
+class ConnectionState:
+    """设备连接状态枚举"""
+    CONNECTED = 1      # 正常连接
+    RECONNECTING = 2   # 重连中
+    DISCONNECTED = 3   # 彻底断开
+
+
 from core.ble.scanner import DeviceScanThread
 from core.ble.monitor import HypeBeatThread
 from core.device.heart_rate_core import HypeBeatCore
@@ -24,10 +33,25 @@ class DeviceManager:
 
         self._first_heart_rate_received = False
 
+        # 连接状态管理
+        self._connection_state = ConnectionState.DISCONNECTED
+        self._prev_connection_state = ConnectionState.DISCONNECTED
+
     def _cancel_reconnect_timer(self):
         if self.reconnect_timer:
             self.reconnect_timer.cancel()
             self.reconnect_timer = None
+
+    def _set_connection_state(self, new_state):
+        """设置连接状态并发射信号（仅在状态变化时）"""
+        if self._connection_state != new_state:
+            self._prev_connection_state = self._connection_state
+            self._connection_state = new_state
+            print(f"[ConnectionState] {self._state_name(self._prev_connection_state)} -> {self._state_name(new_state)}")
+            self.signals.connection_state_changed.emit(new_state)
+
+    def _state_name(self, state):
+        return {1: "CONNECTED", 2: "RECONNECTING", 3: "DISCONNECTED"}.get(state, "UNKNOWN")
 
     def start_scan(self, filter_heart_rate_devices=True):
         self.discovered_devices.clear()
@@ -198,6 +222,7 @@ class DeviceManager:
     def on_monitor_error(self, error):
         if not self.user_disconnecting and self.core.auto_reconnect_enabled:
             print(f"[AutoReconnect] 设备断开，尝试自动重连...")
+            self._set_connection_state(ConnectionState.RECONNECTING)
             self._schedule_reconnect()
         else:
             self.disconnect_device()
@@ -218,6 +243,13 @@ class DeviceManager:
         self.signals.connection_status_changed.emit(status)
 
         if "设备连接成功" in status:
+            # 判断是从重连状态恢复还是彻底断开后重连
+            if self._connection_state == ConnectionState.RECONNECTING:
+                self.signals.reconnect_success.emit()
+            elif self._connection_state == ConnectionState.DISCONNECTED:
+                self.signals.chart_data_clear_requested.emit()
+            self._set_connection_state(ConnectionState.CONNECTED)
+
             self.core.reconnect_attempts = 0
             if self.core.selected_device:
                 display_name = self._get_stable_device_name(self.core.selected_device.address, self.core.selected_device.name)
@@ -241,6 +273,7 @@ class DeviceManager:
         self.is_disconnecting = True
         was_user_disconnecting = self.user_disconnecting
         self.user_disconnecting = True
+        self._set_connection_state(ConnectionState.DISCONNECTED)
 
         try:
             if self.core.monitor_thread:
@@ -274,15 +307,16 @@ class DeviceManager:
     def _schedule_reconnect(self):
         if self.core.reconnect_attempts >= self.core.max_reconnect_attempts:
             print(f"[AutoReconnect] 已达到最大重连次数 {self.core.max_reconnect_attempts}，放弃重连")
-            self.disconnect_device()
+            self.signals.reconnect_failed.emit()
             self.signals.info_bar_requested.emit("warn", "重连失败", f"已尝试 {self.core.max_reconnect_attempts} 次重连均失败，请手动重连")
+            self.disconnect_device()
             return
 
         self.core.reconnect_attempts += 1
         print(f"[AutoReconnect] 第 {self.core.reconnect_attempts}/{self.core.max_reconnect_attempts} 次重连，等待 {self.core.reconnect_interval} 秒...")
 
-        if self.core.reconnect_attempts > 3:
-            self.signals.info_bar_requested.emit("info", "正在重连", f"第 {self.core.reconnect_attempts}/{self.core.max_reconnect_attempts} 次重连...")
+        # 发射重连进度信号（UI 层决定是否展示 InfoBar）
+        self.signals.reconnect_progress.emit(self.core.reconnect_attempts, self.core.max_reconnect_attempts)
 
         self._cancel_reconnect_timer()
         self.reconnect_timer = threading.Timer(self.core.reconnect_interval, self._attempt_reconnect)

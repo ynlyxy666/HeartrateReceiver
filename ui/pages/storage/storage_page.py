@@ -38,11 +38,12 @@ class StorageBar(QFrame):
                 current_x += seg_width
 
 class StoragePage(QFrame):
-    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None):
+    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None, settings_manager=None):
         super().__init__(parent)
         self.signals = signals
         self.storage_service = storage_service
         self.system_monitor = system_monitor
+        self.settings_manager = settings_manager
 
         self.setObjectName("storagePage")
 
@@ -55,8 +56,8 @@ class StoragePage(QFrame):
 
         self.diskSpaceCard = CardWidget(self)
         self.diskSpaceLayout = QVBoxLayout(self.diskSpaceCard)
-        self.diskSpaceLayout.setContentsMargins(15, 12, 15, 12)
-        self.diskSpaceLayout.setSpacing(8)
+        self.diskSpaceLayout.setContentsMargins(12, 6, 12, 6)
+        self.diskSpaceLayout.setSpacing(4)
 
         self.diskSpaceHeaderLayout = QHBoxLayout()
         self.diskSpaceTitle = SubtitleLabel("占用空间", self.diskSpaceCard)
@@ -88,22 +89,48 @@ class StoragePage(QFrame):
         self.diskSpaceInfoLayout.addWidget(self.freeSpaceLabel)
         self.diskSpaceLayout.addLayout(self.diskSpaceInfoLayout)
 
-        self.diskSpaceLayout.addSpacing(8)
-
         self.diskSpaceNoteLabel = QLabel("*软件本身占用很小 占用全部来自数据 条形图显示不了很正常", self.diskSpaceCard)
         self.diskSpaceLayout.addWidget(self.diskSpaceNoteLabel)
 
-        self.diskSpaceLayout.addStretch()
-
         self.leftLayout.addWidget(self.diskSpaceCard)
+
+        self.dataCard = CardWidget(self)
+        self.dataLayout = QVBoxLayout(self.dataCard)
+        self.dataLayout.setContentsMargins(15, 12, 15, 12)
+        self.dataLayout.setSpacing(8)
+
+        self.dataTitle = SubtitleLabel("数据", self.dataCard)
+        self.dataLayout.addWidget(self.dataTitle)
+
+        # 获取实际的数据库存储目录
+        db_dir = ""
+        if self.settings_manager:
+            db_dir = self.settings_manager.get_db_directory() + "\\"
+        # 路径过长时截断
+        display_dir = db_dir
+        if len(display_dir) > 42:
+            display_dir = display_dir[:40] + "…"
+        # 路径部分青色可点击超链接
+        db_dir_url = db_dir.replace("\\", "/")
+        self.dataStorePathLabel = QLabel(
+            f'您的数据存储在：<a href="file:///{db_dir_url}" style="color: #009FAA; text-decoration: none;">{display_dir}</a>',
+            self.dataCard
+        )
+        self.dataStorePathLabel.setOpenExternalLinks(True)
+        self.dataStorePathLabel.setStyleSheet("font-size: 12px; color: #000000;")
+        self.dataLayout.addWidget(self.dataStorePathLabel)
+
+        self.dataLayout.addStretch()
+
+        self.leftLayout.addWidget(self.dataCard)
 
         self.rightLayout = QVBoxLayout()
         self.rightLayout.setSpacing(10)
 
         self.performanceCard = CardWidget(self)
         self.performanceLayout = QVBoxLayout(self.performanceCard)
-        self.performanceLayout.setContentsMargins(15, 12, 15, 12)
-        self.performanceLayout.setSpacing(8)
+        self.performanceLayout.setContentsMargins(12, 6, 12, 6)
+        self.performanceLayout.setSpacing(4)
 
         self.cpuHeaderLayout = QHBoxLayout()
         self.cpuTitle = SubtitleLabel("CPU", self.performanceCard)
@@ -131,12 +158,12 @@ class StoragePage(QFrame):
         self.cpuInfoLayout.addWidget(self.idleCpuLabel)
         self.performanceLayout.addLayout(self.cpuInfoLayout)
 
-        self.performanceLayout.addSpacing(8)
+        self.performanceLayout.addSpacing(4)
 
         self.cpuNoteLabel = QLabel("*软件的CPU使用率 不保证完全准确 误差1%", self.performanceCard)
         self.performanceLayout.addWidget(self.cpuNoteLabel)
 
-        self.performanceLayout.addSpacing(16)
+        self.performanceLayout.addSpacing(8)
 
         self.memoryHeaderLayout = QHBoxLayout()
         self.memoryTitle = SubtitleLabel("内存", self.performanceCard)
@@ -164,7 +191,7 @@ class StoragePage(QFrame):
         self.memoryInfoLayout.addWidget(self.idleMemoryLabel)
         self.performanceLayout.addLayout(self.memoryInfoLayout)
 
-        self.performanceLayout.addSpacing(8)
+        self.performanceLayout.addSpacing(4)
 
         self.memoryNoteLabel = QLabel("*软件的内存使用率 比上面那个准确多了 误差0.01%", self.performanceCard)
         self.performanceLayout.addWidget(self.memoryNoteLabel)
@@ -283,15 +310,19 @@ class StoragePage(QFrame):
         page_width = self.width()
         page_height = self.height()
         card_width = page_width // 2 - 20
+        margin = 40
+        spacing = 10
 
-        self.diskSpaceCard.setFixedSize(card_width, page_height - 40)
+        disk_card_height = 140
+        self.diskSpaceCard.setFixedSize(card_width, disk_card_height)
 
-        total_right_height = page_height - 40
-        treasure_box_card_height = max(total_right_height // 2, 1)
-        self.deviceCard.setFixedSize(card_width, treasure_box_card_height)
+        data_card_height = page_height - margin - disk_card_height - spacing
+        self.dataCard.setFixedSize(card_width, data_card_height)
 
-        performance_card_height = total_right_height - treasure_box_card_height - 10
-        if performance_card_height > 0:
-            self.performanceCard.setFixedSize(card_width, performance_card_height)
-        else:
-            self.performanceCard.setFixedSize(card_width, 100)
+        total_right_height = page_height - margin
+
+        performance_card_height = max(int(total_right_height * 0.38), 100)
+        self.performanceCard.setFixedSize(card_width, performance_card_height)
+
+        device_card_height = total_right_height - performance_card_height - spacing
+        self.deviceCard.setFixedSize(card_width, device_card_height)

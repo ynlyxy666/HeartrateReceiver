@@ -100,6 +100,9 @@ class HomePage(QFrame):
         self.hBoxLayout.addWidget(self.leftCard, 1)
         self.hBoxLayout.addWidget(self.rightContainer, 1)
 
+        # 重连进度 InfoBar 引用（用于后续关闭）
+        self._reconnect_info_bar = None
+
         if self.signals:
             self.signals.device_list_cleared.connect(self._clear_device_list)
             self.signals.device_found.connect(self._on_device_found)
@@ -112,6 +115,10 @@ class HomePage(QFrame):
             self.signals.heart_rate_updated.connect(self._on_heart_rate_updated)
             self.signals.connection_status_changed.connect(self._on_connection_status_changed)
             self.signals.info_bar_requested.connect(self._on_info_bar_requested)
+            self.signals.reconnect_progress.connect(self._on_reconnect_progress)
+            self.signals.reconnect_success.connect(self._on_reconnect_success)
+            self.signals.reconnect_failed.connect(self._on_reconnect_failed)
+            self.signals.chart_data_clear_requested.connect(self._on_chart_data_clear_requested)
 
     def _on_connect_clicked(self):
         selected = self._get_selected_text()
@@ -242,3 +249,58 @@ class HomePage(QFrame):
     def _on_info_label_link_clicked(self, link):
         if link == "storage" and self.signals:
             self.signals.navigate_to_storage.emit()
+
+    def _on_reconnect_progress(self, attempt, max_attempts):
+        """重连进度更新：第3次起弹出 InfoBar 提示"""
+        if attempt >= 3:
+            parent = self.window()
+            # 关闭之前的重连进度 InfoBar
+            if self._reconnect_info_bar is not None:
+                try:
+                    self._reconnect_info_bar.close()
+                except RuntimeError:
+                    pass
+                self._reconnect_info_bar = None
+            # 创建新的进度 InfoBar（永不自动消失）
+            self._reconnect_info_bar = InfoBar.info(
+                title="正在重连",
+                content=f"第 {attempt}/{max_attempts} 次重连...",
+                orient=Qt.Orientation.Horizontal,
+                isClosable=False,
+                position=InfoBarPosition.TOP,
+                duration=-1,
+                parent=parent
+            )
+
+    def _on_reconnect_success(self):
+        """重连成功：关闭进度 InfoBar，提示成功"""
+        if self._reconnect_info_bar is not None:
+            try:
+                self._reconnect_info_bar.close()
+            except RuntimeError:
+                pass
+            self._reconnect_info_bar = None
+        parent = self.window()
+        if parent:
+            InfoBar.success(
+                title="重连成功",
+                content="设备已重新连接，继续监测",
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=parent
+            )
+
+    def _on_reconnect_failed(self):
+        """重连失败：关闭进度 InfoBar"""
+        if self._reconnect_info_bar is not None:
+            try:
+                self._reconnect_info_bar.close()
+            except RuntimeError:
+                pass
+            self._reconnect_info_bar = None
+
+    def _on_chart_data_clear_requested(self):
+        """彻底断开后重连：清空图表历史数据"""
+        self.trendChartPage.clear_data()

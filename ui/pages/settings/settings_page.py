@@ -122,6 +122,7 @@ class AutoReconnect(ExpandGroupSettingCard):
         self.spinBox1 = SpinBox()
         self.spinBox1.setRange(1, 10)
         self.spinBox1.setValue(5)
+        self.spinBox1.setFixedWidth(120)
         
         attempts = self.settings_manager.get("auto_reconnect_attempts", 5)
         self.spinBox1.setValue(attempts)
@@ -131,6 +132,7 @@ class AutoReconnect(ExpandGroupSettingCard):
         self.spinBox2 = SpinBox()
         self.spinBox2.setRange(3, 10)
         self.spinBox2.setValue(5)
+        self.spinBox2.setFixedWidth(120)
         
         interval = self.settings_manager.get("auto_reconnect_interval", 5)
         self.spinBox2.setValue(interval)

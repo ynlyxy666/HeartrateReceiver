@@ -26,6 +26,8 @@ class SettingsManager:
             # 大数字卡片设置
             "big_number_font_family": "Segoe UI",  # 大数字卡片字体家族
             "big_number_font_color": "#333",  # 大数字卡片字体颜色
+            # 数据库目录设置（为空默认使用 settings 同级目录）
+            "db_directory": "",
         }
         
         # 确保设置目录存在
@@ -67,6 +69,15 @@ class SettingsManager:
         """设置设置值"""
         self.settings[key] = value
         self.save_settings()
+
+    def get_db_directory(self):
+        """获取数据库目录，未配置或目录不存在时重新定义并持久化到 settings.json"""
+        db_dir = self.settings.get("db_directory", "")
+        if db_dir and os.path.isdir(db_dir):
+            return db_dir
+        # 未定义或目录不存在 → 重置为默认并保存
+        self.set("db_directory", self.settings_dir)
+        return self.settings_dir
     
     def load_device_names(self):
         """加载设备名称"""

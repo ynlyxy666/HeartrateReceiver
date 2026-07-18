@@ -22,6 +22,11 @@ class AppSignals(QObject):
     device_disconnected = pyqtSignal()
     connection_status_changed = pyqtSignal(str)
     connection_error = pyqtSignal(str)
+    connection_state_changed = pyqtSignal(object)  # 连接状态变更，参数为 ConnectionState 枚举对象（int 类型兼容）
+    reconnect_progress = pyqtSignal(int, int)  # 重连进度（当前次数，最大次数）
+    reconnect_success = pyqtSignal()  # 重连成功
+    reconnect_failed = pyqtSignal()  # 重连失败
+    chart_data_clear_requested = pyqtSignal()  # 请求清空图表数据
 
     # UI → 逻辑 动作信号 (HomePage 触发, MainWindow 中介, DeviceManager 响应)
     scan_requested = pyqtSignal(bool)     # filter_heart_rate_devices

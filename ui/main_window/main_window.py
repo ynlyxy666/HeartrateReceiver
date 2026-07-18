@@ -45,7 +45,7 @@ class HypeBeatWindow(FluentWindow):
         self.settings_manager = SettingsManager()
         print("[SettingsManager] 设置管理器已初始化")
 
-        self.data_manager = DataManager()
+        self.data_manager = DataManager(settings_manager=self.settings_manager)
         print("[DataManager] 数据管理器已初始化")
 
         self.memory_share = MemoryShareManager()
@@ -99,7 +99,8 @@ class HypeBeatWindow(FluentWindow):
             self, 
             self.signals, 
             self.storage_service, 
-            self.system_monitor
+            self.system_monitor,
+            self.settings_manager
         )
         self.addSubInterface(self.storagePage, FluentIcon.SPEED_HIGH, "存储和性能")
 

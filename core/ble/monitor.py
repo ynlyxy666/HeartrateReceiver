@@ -2,6 +2,7 @@ import asyncio
 import threading
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from core.device.heart_rate_parser import HeartRateParser
 
 timeout = 10
 
@@ -16,6 +17,9 @@ class HypeBeatThread(threading.Thread):
         self.device = device
         self.running = False
         self.client = None
+
+        # 使用标准化的心率数据解析器
+        self.heart_rate_parser = HeartRateParser()
 
         # 回调函数替代 pyqtSignal
         self.on_heart_rate_updated_cb = on_heart_rate_updated
@@ -36,9 +40,14 @@ class HypeBeatThread(threading.Thread):
     async def monitor_heart_rate(self):
         def notification_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
             try:
-                value = int(data.hex().split('06')[1], 16)
-                if self.on_heart_rate_updated_cb:
-                    self.on_heart_rate_updated_cb(value)
+                parsed = self.heart_rate_parser.parse_heart_rate_measurement(data)
+                heart_rate = parsed['heart_rate']
+                if heart_rate is not None and heart_rate > 0:
+                    if self.on_heart_rate_updated_cb:
+                        self.on_heart_rate_updated_cb(heart_rate)
+            except ValueError as e:
+                # 记录解析错误但不中断连接
+                print(f"[HeartRateParser] 数据解析警告: {e}")
             except Exception as e:
                 if self.on_error_cb:
                     self.on_error_cb(f"解析心率数据出错: {e}")

@@ -5,18 +5,25 @@ from datetime import datetime
 
 
 class DataManager:
-    def __init__(self, batch_size=50):
+    def __init__(self, settings_manager=None, batch_size=50):
         """
         初始化数据管理器（SQLite 后端）
 
         Args:
+            settings_manager: 设置管理器实例，用于获取数据库目录
             batch_size: 每多少个数据写一次数据库，默认50
         """
         self.batch_size = batch_size
         self.data_buffer = []
         self.lock = threading.Lock()
+        self.settings_manager = settings_manager
 
-        db_path = os.path.join(self._get_project_root(), "hypebeat.db")
+        if self.settings_manager:
+            db_dir = self.settings_manager.get_db_directory()
+        else:
+            db_dir = self._get_project_root()
+        os.makedirs(db_dir, exist_ok=True)
+        db_path = os.path.join(db_dir, "hypebeat.db")
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.execute("PRAGMA journal_mode=WAL")
         self._init_table()
@@ -71,3 +78,17 @@ class DataManager:
         """确保所有数据写入数据库"""
         if self.data_buffer:
             self.write_data()
+
+    def clear_temp_buffer(self):
+        """清空临时缓存，不影响 SQLite 已有数据"""
+        with self.lock:
+            count = len(self.data_buffer)
+            self.data_buffer.clear()
+            print(f"[DataManager] 临时缓存已清空 ({count} 条)")
+
+    def clear_all_data(self):
+        """清空所有数据（包括 SQLite 和缓存）"""
+        self.clear_temp_buffer()
+        self.conn.execute("DELETE FROM heart_rate")
+        self.conn.commit()
+        print("[DataManager] 所有数据已清空")

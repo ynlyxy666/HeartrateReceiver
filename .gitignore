@@ -25,6 +25,7 @@ sync
 dist
 build_nuitka.bat
 build.info
+building/
 
 # Virtual Environment
 venv/

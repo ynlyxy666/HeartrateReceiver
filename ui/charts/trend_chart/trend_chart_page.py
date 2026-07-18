@@ -37,7 +37,7 @@ class TrendChartPage(QWidget):
         self.top_layout = QHBoxLayout()
         self.top_layout.setSpacing(10)
 
-        self.left_label = QLabel("趋势")
+        self.left_label = QLabel("HR")
         self.left_label.setStyleSheet(
             "font-family: 'Segoe UI'; font-size: 24px; font-weight: normal; color: #333;"
         )
@@ -167,3 +167,11 @@ class TrendChartPage(QWidget):
         self._refresh_chart()
         # 更新右上角标签显示当前 Y 轴最大值
         self.top_right_label.setText(f"{int(self.ax.get_ylim()[1])}")
+
+    def clear_data(self):
+        """清空所有历史数据并刷新空白图表"""
+        count = len(self.data)
+        self.data.clear()
+        self._refresh_chart()
+        self.top_right_label.setText("当前范围")
+        print(f"[ChartData] 已清空历史数据 ({count} 条)")
