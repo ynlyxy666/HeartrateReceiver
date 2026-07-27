@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QFrame, QVBoxLayout
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QWheelEvent
+from PySide6.QtWidgets import QFrame, QVBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QWheelEvent
 import os
 from qfluentwidgets import ExpandGroupSettingCard, FluentIcon, ComboBox, SwitchButton, IndicatorPosition, PrimaryPushSettingCard, OptionsSettingCard, qconfig, SpinBox, ScrollArea, PushButton
 from datetime import datetime

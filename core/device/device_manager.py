@@ -62,6 +62,8 @@ class DeviceManager:
         self.signals.ui_scan_state_changed.emit(False, "扫描中...")
         self.signals.ui_progress_state_changed.emit(True, False)
 
+        print(f"[DeviceManager] 开始扫描设备, filter_hr={filter_heart_rate_devices}")
+
         self.core.scan_thread = DeviceScanThread(
             on_scan_started=self._on_scan_started,
             on_scan_finished=self.on_scan_finished,
@@ -190,6 +192,7 @@ class DeviceManager:
 
         self.core.selected_device = selected_info.device
         self.core.devices = device_list
+        print(f"[DeviceManager] 开始连接设备: {selected_text}")
 
         if not self.core.is_device_supported(self.core.selected_device):
             self.signals.info_bar_requested.emit("warn", "设备不支持", "请重新选择")
@@ -216,6 +219,7 @@ class DeviceManager:
         self.signals.ui_checkbox_enabled_changed.emit(False)
         self.signals.ui_list_enabled_changed.emit(False)
         self.signals.device_connecting.emit()
+        print(f"[DeviceManager] 连接流程启动完成，等待蓝牙连接结果")
 
         self._connecting = False
 
@@ -232,6 +236,7 @@ class DeviceManager:
             self._first_heart_rate_received = True
             if self.core.selected_device:
                 self.settings_manager.increment_connection_count(self.core.selected_device.address)
+            print(f"[DeviceManager] 首次收到有效心率数据: {heart_rate} BPM")
 
         self.data_manager.collect_data(heart_rate)
         self.memory_share.update_heart_rate(heart_rate)

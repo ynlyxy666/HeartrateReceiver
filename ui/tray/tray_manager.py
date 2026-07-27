@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
-from PyQt6.QtGui import QAction
+from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from PySide6.QtGui import QAction
 
 
 class TrayManager:
@@ -25,9 +25,11 @@ class TrayManager:
     def set_show_callback(self, callback):
         self.show_action.triggered.connect(callback)
         self._double_click_callback = callback
+        self.show_action.triggered.connect(lambda: print("[Tray] 显示主窗口（托盘菜单）"))
 
     def set_exit_callback(self, callback):
         self.exit_action.triggered.connect(callback)
+        self.exit_action.triggered.connect(lambda: print("[Tray] 退出程序（托盘菜单）"))
 
     def _on_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -36,6 +38,8 @@ class TrayManager:
 
     def show(self):
         self.tray_icon.show()
+        print("[Tray] 托盘图标已显示")
 
     def hide(self):
         self.tray_icon.hide()
+        print("[Tray] 托盘图标已隐藏")

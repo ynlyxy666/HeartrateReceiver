@@ -18,6 +18,7 @@ class StorageService:
             total_gb = round(total / (1024 ** 3), 1)
             used_gb = round(used / (1024 ** 3), 1)
             used_percent = round(used / total * 100, 1) if total > 0 else 0
+            print(f"[StorageService] 磁盘空间: 总{total_gb}GB, 已用{used_gb}GB({used_percent}%), 可用{round(free/(1024**3),1)}GB")
             return total_gb, used_gb, used_percent
         except Exception as e:
             print(f"[StorageService] 获取磁盘空间失败: {e}")

@@ -27,11 +27,13 @@ def show_help_async():
 
 def _run_help():
     try:
+        print("[帮助] 说明书窗口已打开")
         show_help()
     finally:
         global _window_open
         with _lock:
             _window_open = False
+        print("[帮助] 说明书窗口已关闭")
 
 
 if __name__ == '__main__':

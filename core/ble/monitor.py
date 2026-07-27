@@ -55,16 +55,19 @@ class HypeBeatThread(threading.Thread):
         try:
             if self.on_connection_status_cb:
                 self.on_connection_status_cb("正在连接设备...")
+            print(f"[Monitor] 开始连接设备: {self.device.address}")
 
             def disconnected_callback(client):
                 if self.on_connection_status_cb:
                     self.on_connection_status_cb("设备已断开连接")
+                print(f"[Monitor] 设备断开连接: {self.device.address}")
                 self.running = False
 
             async with BleakClient(self.device, disconnected_callback=disconnected_callback, timeout=timeout) as client:
                 self.client = client
                 if self.on_connection_status_cb:
                     self.on_connection_status_cb("设备连接成功")
+                print(f"[Monitor] 设备连接成功: {self.device.address}")
 
                 if self.on_connection_status_cb:
                     self.on_connection_status_cb("正在查找心率测量特征...")
@@ -80,15 +83,18 @@ class HypeBeatThread(threading.Thread):
                 if hr_measurement_uuid:
                     if self.on_connection_status_cb:
                         self.on_connection_status_cb("开始心率监测")
+                    print(f"[Monitor] 找到心率特征: {hr_measurement_uuid}，开始监听通知")
                     await client.start_notify(hr_measurement_uuid, notification_handler)
 
                     while self.running:
                         await asyncio.sleep(0.1)
 
                     await client.stop_notify(hr_measurement_uuid)
+                    print("[Monitor] 已停止心率通知监听")
                 else:
                     if self.on_error_cb:
                         self.on_error_cb("未找到心率测量特征")
+                    print("[Monitor] 未找到心率测量特征，连接终止")
         except Exception as e:
             if self.on_error_cb:
                 self.on_error_cb(f"连接失败: {e}")

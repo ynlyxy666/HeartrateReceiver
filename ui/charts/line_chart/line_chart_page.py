@@ -4,12 +4,12 @@ from collections import deque
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from qfluentwidgets import CardWidget
 
-# 字体设置：直接指定字体文件，确保中文字符正常渲染
-FONT_CN = FontProperties(fname=r'C:\Windows\Fonts\msyh.ttc', size=9)
+# 字体设置：使用系统字体名称，避免硬编码路径
+FONT_CN = FontProperties(family='Microsoft YaHei', size=9)
 
 
 class LineChartPage(QWidget):
@@ -82,7 +82,7 @@ class LineChartPage(QWidget):
 
         # 创建 matplotlib 画布
         self.fig = Figure()
-        self.fig.patch.set_facecolor('white')
+        self.fig.patch.set_facecolor('none')
         self.fig.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.99)
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasQTAgg(self.fig)
@@ -176,9 +176,9 @@ class LineChartPage(QWidget):
             labelleft=False
         )
 
-        # 白色背景
-        self.ax.set_facecolor('white')
-        self.fig.patch.set_facecolor('white')
+        # 透明背景
+        self.ax.set_facecolor('none')
+        self.fig.patch.set_facecolor('none')
 
         self.canvas.draw()
 

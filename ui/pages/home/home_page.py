@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from qfluentwidgets import SubtitleLabel, TitleLabel, BodyLabel, PushButton, PrimaryPushButton, CardWidget, CheckBox, IndeterminateProgressBar, ProgressBar, ListWidget, ToolTipFilter, ToolTipPosition, InfoBar, InfoBarPosition
 from ui.charts.trend_chart.trend_chart_page import TrendChartPage
 
@@ -73,7 +73,7 @@ class HomePage(QFrame):
 
         self.disconnectButton = PushButton("断开连接")
         self.disconnectButton.setEnabled(False)
-        self.disconnectButton.clicked.connect(lambda: self.signals.disconnect_requested.emit())
+        self.disconnectButton.clicked.connect(self._on_disconnect_clicked)
 
         self.buttonLayout.addWidget(self.connectButton)
         self.buttonLayout.addWidget(self.disconnectButton)
@@ -90,6 +90,8 @@ class HomePage(QFrame):
         self.chartLayout.setContentsMargins(0, 0, 0, 0)
 
         self.trendChartPage = TrendChartPage()
+        self.trendChartPage.set_device_name("未连接设备")
+        self._device_name_shown = False
         self.chartLayout.addWidget(self.trendChartPage)
 
         self.emptyCard = CardWidget(self.rightContainer)
@@ -122,7 +124,12 @@ class HomePage(QFrame):
 
     def _on_connect_clicked(self):
         selected = self._get_selected_text()
+        print(f"[HomePage] 用户点击连接设备: {selected}")
         self.signals.connect_requested.emit(selected)
+
+    def _on_disconnect_clicked(self):
+        print("[HomePage] 用户点击断开连接")
+        self.signals.disconnect_requested.emit()
 
     def _get_selected_text(self):
         if self.listWidget.currentRow() >= 0:
@@ -213,12 +220,21 @@ class HomePage(QFrame):
 
     def _on_heart_rate_updated(self, heart_rate):
         self.trendChartPage.update_heart_rate(heart_rate)
+        # 首次收到数据时刷新设备名称
+        if not self._device_name_shown:
+            self._device_name_shown = True
+            selected = self._get_selected_text()
+            if selected:
+                self.trendChartPage.set_device_name(selected)
 
     def _on_connection_status_changed(self, status):
         if "设备连接成功" in status:
             self.connectionText.setText("设备已连接")
+            self._device_name_shown = False
         elif "设备已断开连接" in status or "已断开连接" in status:
             self.connectionText.setText("设备已断开连接")
+            self._device_name_shown = False
+            self.trendChartPage.set_device_name("未连接设备")
         elif "请先连接设备" in status:
             self.connectionText.setText("请先连接设备")
         else:

@@ -55,7 +55,8 @@ class MemoryInfoThread(threading.Thread):
                 other_memory = used_memory - process_memory
                 process_memory_percent = (process_memory / total_memory) * 100
                 other_memory_percent = (other_memory / total_memory) * 100
-                self.callback(total_memory, used_memory, memory_percent, process_memory, process_memory_percent, other_memory_percent)
+                # 转换为 MB 避免 Shiboken 32-bit int 溢出
+                self.callback(total_memory // (1024 * 1024), used_memory // (1024 * 1024), memory_percent, process_memory // (1024 * 1024), process_memory_percent, other_memory_percent)
                 time.sleep(1)
             except Exception as e:
                 print(f"[MemoryInfoThread] 获取内存信息失败: {e}")
@@ -74,16 +75,20 @@ class SystemMonitor:
         if self.cpu_thread is None or not self.cpu_thread.is_alive():
             self.cpu_thread = CPUInfoThread(callback=self.signals.cpu_info_updated.emit)
             self.cpu_thread.start()
+            print("[SystemMonitor] CPU监控已启动")
 
         if self.memory_thread is None or not self.memory_thread.is_alive():
             self.memory_thread = MemoryInfoThread(callback=self.signals.memory_info_updated.emit)
             self.memory_thread.start()
+            print("[SystemMonitor] 内存监控已启动")
 
     def stop_monitoring(self):
         if self.cpu_thread and self.cpu_thread.is_alive():
             self.cpu_thread.stop()
             self.cpu_thread = None
+            print("[SystemMonitor] CPU监控已停止")
 
         if self.memory_thread and self.memory_thread.is_alive():
             self.memory_thread.stop()
             self.memory_thread = None
+            print("[SystemMonitor] 内存监控已停止")

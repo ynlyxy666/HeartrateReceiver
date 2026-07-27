@@ -53,6 +53,7 @@ class DeviceScanThread(threading.Thread):
 
     def stop(self):
         self.scanning = False
+        print("[DeviceScanThread] 收到停止扫描指令")
 
     def run(self):
         try:

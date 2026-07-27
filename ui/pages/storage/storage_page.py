@@ -1,7 +1,16 @@
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt6.QtCore import Qt, QRectF, QTimer
-from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath
+import os
+from datetime import datetime, timedelta
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt, QRectF, QTimer
+from PySide6.QtGui import QPainter, QColor, QBrush, QPainterPath
 from qfluentwidgets import CardWidget, SubtitleLabel, BodyLabel
+
+import matplotlib
+matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 
 
 class StorageBar(QFrame):
@@ -38,12 +47,14 @@ class StorageBar(QFrame):
                 current_x += seg_width
 
 class StoragePage(QFrame):
-    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None, settings_manager=None):
+    def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None, settings_manager=None, data_manager=None, navigate_to_device_filter=None):
         super().__init__(parent)
         self.signals = signals
         self.storage_service = storage_service
         self.system_monitor = system_monitor
         self.settings_manager = settings_manager
+        self.data_manager = data_manager
+        self._navigate_to_device_filter = navigate_to_device_filter
 
         self.setObjectName("storagePage")
 
@@ -120,7 +131,52 @@ class StoragePage(QFrame):
         self.dataStorePathLabel.setStyleSheet("font-size: 12px; color: #000000;")
         self.dataLayout.addWidget(self.dataStorePathLabel)
 
+        self.dataSeparator = QFrame(self.dataCard)
+        self.dataSeparator.setFrameShape(QFrame.Shape.HLine)
+        self.dataSeparator.setStyleSheet("color: #E0E0E0;")
+        self.dataLayout.addWidget(self.dataSeparator)
+
+        self.dbSizeLayout = QHBoxLayout()
+        self.dbSizeLabel = QLabel("数据库大小：", self.dataCard)
+        self.dbSizeLabel.setStyleSheet("font-size: 12px; color: #000000;")
+        self.dbSizeValueLabel = QLabel("计算中…", self.dataCard)
+        self.dbSizeValueLabel.setStyleSheet("font-size: 12px; color: #00AA00; font-weight: bold;")
+        self.dbSizeLayout.addWidget(self.dbSizeLabel)
+        self.dbSizeLayout.addWidget(self.dbSizeValueLabel)
+        self.dbSizeLayout.addStretch()
+        self.dataLayout.addLayout(self.dbSizeLayout)
+
+        self.recordCountLayout = QHBoxLayout()
+        self.recordCountLabel = QLabel("总数据条数：", self.dataCard)
+        self.recordCountLabel.setStyleSheet("font-size: 12px; color: #000000;")
+        self.recordCountValueLabel = QLabel("计算中…", self.dataCard)
+        self.recordCountValueLabel.setStyleSheet("font-size: 12px; color: #00AA00; font-weight: bold;")
+        self.recordCountLayout.addWidget(self.recordCountLabel)
+        self.recordCountLayout.addWidget(self.recordCountValueLabel)
+        self.recordCountLayout.addStretch()
+        self.dataLayout.addLayout(self.recordCountLayout)
+
+        # Matplotlib 图表
+        self.chartTitleLabel = QLabel("近14日使用记录", self.dataCard)
+        self.chartTitleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.chartTitleLabel.setStyleSheet("font-size: 12px; color: #000000;")
+        self.dataLayout.addWidget(self.chartTitleLabel)
+
+        self.chartFigure = Figure(figsize=(5, 1.2), dpi=100)
+        self.chartFigure.patch.set_alpha(0)
+        self.chartCanvas = FigureCanvasQTAgg(self.chartFigure)
+        self.chartCanvas.setFixedHeight(120)
+        self.chartCanvas.setStyleSheet("background: transparent;")
+        self.chartAx = self.chartFigure.add_subplot(111)
+        self.chartAx.patch.set_alpha(0)
+        self._style_chart_ax([])
+        self.dataLayout.addWidget(self.chartCanvas)
+
         self.dataLayout.addStretch()
+
+        self.dataStoreHintLabel = QLabel("*到设置中修改数据存储位置", self.dataCard)
+        self.dataStoreHintLabel.setStyleSheet("font-size: 11px; color: gray;")
+        self.dataLayout.addWidget(self.dataStoreHintLabel)
 
         self.leftLayout.addWidget(self.dataCard)
 
@@ -208,6 +264,15 @@ class StoragePage(QFrame):
         self.deviceTitle.setObjectName("deviceTitle")
         self.deviceLayout.addWidget(self.deviceTitle)
 
+        self.deviceConfigLink = QLabel(
+            '<a href="config" style="color: #009FAA; text-decoration: none;">设备筛选配置</a>',
+            self.deviceCard
+        )
+        self.deviceConfigLink.setObjectName("deviceConfigLink")
+        self.deviceConfigLink.setStyleSheet("font-size: 14px; padding-left: 2px;")
+        self.deviceLayout.addWidget(self.deviceConfigLink)
+        self.deviceConfigLink.linkActivated.connect(self._on_device_config_clicked)
+
         self.deviceLayout.addStretch()
 
         self.rightLayout.addWidget(self.performanceCard)
@@ -223,6 +288,126 @@ class StoragePage(QFrame):
             self.signals.memory_info_updated.connect(self.update_memory_info)
 
         QTimer.singleShot(400, self.initial_refresh)
+        QTimer.singleShot(500, self._update_db_size)
+
+    def _get_db_dir(self):
+        """获取数据库目录"""
+        if self.settings_manager:
+            return self.settings_manager.get_db_directory()
+        return ""
+
+    def _get_dir_size(self, path):
+        """递归计算目录总大小（字节）"""
+        total = 0
+        for dirpath, _, filenames in os.walk(path):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                try:
+                    if os.path.isfile(filepath) and not os.path.islink(filepath):
+                        total += os.path.getsize(filepath)
+                except Exception:
+                    pass
+        return total
+
+    def _format_size(self, bytes_size):
+        """将字节格式化为可读的大小"""
+        if bytes_size < 1024:
+            return f"{bytes_size} B"
+        elif bytes_size < 1024 ** 2:
+            return f"{bytes_size / 1024:.1f} KB"
+        elif bytes_size < 1024 ** 3:
+            return f"{bytes_size / (1024 ** 2):.1f} MB"
+        else:
+            return f"{bytes_size / (1024 ** 3):.2f} GB"
+
+    def _update_db_size(self):
+        """更新数据库大小和记录数显示"""
+        try:
+            db_dir = self._get_db_dir()
+            if db_dir:
+                size = self._get_dir_size(db_dir)
+                self.dbSizeValueLabel.setText(self._format_size(size))
+            else:
+                self.dbSizeValueLabel.setText("未知")
+        except Exception as e:
+            print(f"[StoragePage] 获取数据库大小失败: {e}")
+            self.dbSizeValueLabel.setText("获取失败")
+
+        # 更新总数据条数
+        try:
+            if self.data_manager:
+                count = self.data_manager.get_record_count()
+                self.recordCountValueLabel.setText(f"{count:,}")
+            else:
+                self.recordCountValueLabel.setText("未知")
+        except Exception as e:
+            print(f"[StoragePage] 获取记录数失败: {e}")
+            self.recordCountValueLabel.setText("获取失败")
+
+        # 更新图表
+        self._update_chart()
+
+    def _style_chart_ax(self, daily_data):
+        """设置图表初始样式（无数据时显示占位）"""
+        self.chartAx.clear()
+        if not daily_data:
+            self.chartAx.text(0.5, 0.5, "暂无数据", transform=self.chartAx.transAxes,
+                              ha="center", va="center", fontsize=10, color="gray")
+        self.chartAx.set_xticks([])
+        self.chartAx.set_yticks([])
+        for spine in self.chartAx.spines.values():
+            spine.set_visible(False)
+
+    def _update_chart(self):
+        """从数据库获取近 14 天数据并绘制折线图（无数据天补 0）"""
+        try:
+            self.chartAx.clear()
+            self.chartAx.patch.set_alpha(0)
+            if not self.data_manager:
+                self.chartAx.text(0.5, 0.5, "暂无数据", transform=self.chartAx.transAxes,
+                                  ha="center", va="center", fontsize=10, color="gray")
+                self.chartCanvas.draw_idle()
+                return
+
+            daily = self.data_manager.get_daily_record_counts(14)
+            db_map = {row[0]: row[1] for row in daily}
+
+            # 生成完整的 14 天日期列表，缺失补 0
+            today = datetime.now()
+            full_dates = []
+            full_counts = []
+            for i in range(13, -1, -1):
+                day_str = (today - timedelta(days=i)).strftime("%m-%d")
+                full_dates.append(day_str)
+                full_counts.append(db_map.get(day_str, 0))
+
+            x = range(14)
+            self.chartAx.plot(x, full_counts, color="#009FAA", linewidth=1.5,
+                              marker="o", markersize=3, markerfacecolor="#009FAA")
+
+            # x 轴只显示部分标签避免拥挤
+            step = 2 if 14 > 10 else 1
+            visible_ticks = list(range(0, 14, step))
+            self.chartAx.set_xticks(visible_ticks)
+            self.chartAx.set_xticklabels([full_dates[i] for i in visible_ticks], fontsize=7)
+            self.chartAx.tick_params(axis="y", labelsize=7)
+            self.chartAx.set_ylabel("条", fontsize=7)
+            for spine in self.chartAx.spines.values():
+                spine.set_visible(False)
+            self.chartAx.tick_params(axis="x", length=0)
+            self.chartAx.tick_params(axis="y", length=2)
+
+            if max(full_counts) > 0:
+                self.chartAx.set_ylim(0, max(full_counts) * 1.2)
+
+            self.chartFigure.tight_layout(pad=0)
+            self.chartCanvas.draw_idle()
+        except Exception as e:
+            print(f"[StoragePage] 更新图表失败: {e}")
+
+    def _on_device_config_clicked(self, url):
+        if self._navigate_to_device_filter:
+            self._navigate_to_device_filter()
 
     def initial_refresh(self):
         print("[StoragePage] 执行启动时初始刷新")
@@ -230,6 +415,7 @@ class StoragePage(QFrame):
             self.storage_service.emit_disk_space_info()
         if self.system_monitor:
             self.system_monitor.start_monitoring()
+        self._update_db_size()
 
     def on_disk_space_updated(self, total_gb, used_gb, used_percent):
         self.diskSpaceTotalLabel.setText(f"共 {total_gb} GB")
@@ -253,19 +439,27 @@ class StoragePage(QFrame):
         other_data_gb = round(used_gb - app_size_gb, 3)
         free_space = round(total_gb - used_gb, 3)
 
-        self.softwareSizeLabel.setText(f"软件占用 {app_size_gb} GB  ")
-        self.otherDataLabel.setText(f"其他数据 {other_data_gb} GB  ")
-        self.freeSpaceLabel.setText(f"可用 {free_space} GB")
+        # 将 GB 转为字节后用自适应格式化
+        gb_to_bytes = 1024 ** 3
+        app_size_bytes = int(app_size_gb * gb_to_bytes)
+        other_data_bytes = int(max(other_data_gb, 0) * gb_to_bytes)
+        free_space_bytes = int(max(free_space, 0) * gb_to_bytes)
+
+        self.softwareSizeLabel.setText(f"软件占用 {self._format_size(app_size_bytes)}  ")
+        self.otherDataLabel.setText(f"其他数据 {self._format_size(other_data_bytes)}  ")
+        self.freeSpaceLabel.setText(f"可用 {self._format_size(free_space_bytes)}")
 
     def hideEvent(self, event):
         super().hideEvent(event)
         if self.system_monitor:
             self.system_monitor.stop_monitoring()
+        print("[StoragePage] 页面隐藏，系统监控已停止")
 
     def showEvent(self, event):
         super().showEvent(event)
         if self.system_monitor:
             self.system_monitor.start_monitoring()
+        print("[StoragePage] 页面显示，系统监控已启动")
 
     def update_cpu_info(self, cpu_percent, process_cpu, other_cpu):
         try:

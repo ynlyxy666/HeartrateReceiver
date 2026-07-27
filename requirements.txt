@@ -1,6 +1,6 @@
-PyQt6
-PyQt6-Fluent-Widgets
-PyQt6-Frameless-Window
+PySide6
+PySide6-Fluent-Widgets
+# PyQt6-Frameless-Window -> PySideSix-Frameless-Window (已作为 PySide6-Fluent-Widgets 的依赖自动安装)
 bleak
 psutil
 pywin32

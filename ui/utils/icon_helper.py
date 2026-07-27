@@ -1,6 +1,6 @@
 import base64
 from io import BytesIO
-from PyQt6.QtGui import QIcon, QPixmap
+from PySide6.QtGui import QIcon, QPixmap
 
 
 def get_icon_from_base64(base64_data):

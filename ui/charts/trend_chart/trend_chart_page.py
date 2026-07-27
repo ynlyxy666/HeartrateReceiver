@@ -5,12 +5,12 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from qfluentwidgets import CardWidget
 
-# 字体设置：直接指定字体文件，确保中文字符正常渲染
-FONT_CN = FontProperties(fname=r'C:\Windows\Fonts\msyh.ttc', size=9)
+# 字体设置：使用系统字体名称，避免硬编码路径
+FONT_CN = FontProperties(family='Microsoft YaHei', size=9)
 
 
 class TrendChartPage(QWidget):
@@ -43,7 +43,15 @@ class TrendChartPage(QWidget):
         )
         self.left_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
+        self.device_label = QLabel("未连接设备")
+        self.device_label.setStyleSheet(
+            "font-family: '微软雅黑'; font-size: 16px; font-weight: normal; color: #333;"
+        )
+        self.device_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+
         self.top_layout.addWidget(self.left_label)
+        self.top_layout.addStretch()
+        self.top_layout.addWidget(self.device_label)
         self.chart_layout.addLayout(self.top_layout)
 
         # 第二行水平布局（用于放置"心率"和"当前范围"）
@@ -70,7 +78,7 @@ class TrendChartPage(QWidget):
 
         # matplotlib 画布
         self.fig = Figure()
-        self.fig.patch.set_facecolor('white')
+        self.fig.patch.set_facecolor('none')
         self.fig.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.99)
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasQTAgg(self.fig)
@@ -115,7 +123,7 @@ class TrendChartPage(QWidget):
     def _refresh_chart(self):
         """清空 axes 并完全重绘图表"""
         self.ax.clear()
-        self.ax.set_facecolor('white')
+        self.ax.set_facecolor('none')
 
         data = self.data
         n = len(data)
@@ -167,6 +175,10 @@ class TrendChartPage(QWidget):
         self._refresh_chart()
         # 更新右上角标签显示当前 Y 轴最大值
         self.top_right_label.setText(f"{int(self.ax.get_ylim()[1])}")
+
+    def set_device_name(self, name):
+        """设置右上角设备名称"""
+        self.device_label.setText(name)
 
     def clear_data(self):
         """清空所有历史数据并刷新空白图表"""

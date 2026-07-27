@@ -2,7 +2,9 @@
 # 听澜 · HypeBeat — A Bluetooth-based Desktop Heart Rate Monitor
 from bin.app import run
 
-# 这是行为艺术 和主程序无关
+if __name__ == "__main__":
+    run()
+    
 
 # [00:00.00]我恨明月不照我-阿YueYue
 # [00:01.87]词：周仁
@@ -70,6 +72,3 @@ from bin.app import run
 # [03:47.15]换半缕月辉映我
 # [03:49.77]一捧暗夜银河
 # [03:53.45]爱我
-
-if __name__ == "__main__":
-    run()

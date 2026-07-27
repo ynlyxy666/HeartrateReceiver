@@ -1,30 +1,31 @@
 import sys
 
-# DPI 感知由 app_startup.start() 中 SetProcessDpiAwareness(2) 完成
-# Qt 使用默认的 PER_MONITOR_AWARE_V2 行为，两者一致，无需额外配置
-
-# 闪屏必须在任何 PyQt 加载前执行，覆盖 PyQt 的初始化耗时
+# === 1. 闪屏（控制台输出） ===
 import system.startup.app_startup as app_startup
 app_startup.start()
 
-from PyQt6.QtCore import qInstallMessageHandler
-from PyQt6.QtWidgets import QApplication
+# === 2. HTTP 日志流（此后所有 print 仅走 HTTP） ===
+from system.log_server import LogServer, redirect_stdio
+_log_server = LogServer()
+_log_server.start()
+redirect_stdio(_log_server)
+
+# === 3. Qt 应用 ===
+from PySide6.QtCore import qInstallMessageHandler
+from PySide6.QtWidgets import QApplication
 
 from ui.main_window.main_window import HypeBeatWindow
 
 
 def _qt_msg_handler(mode, context, message):
-    if "QFont::setPointSize" not in message:
-        print(message)
+    print(message)
 
 
 def run():
-    app = QApplication(sys.argv)
     qInstallMessageHandler(_qt_msg_handler)
+    app = QApplication(sys.argv)
 
     window = HypeBeatWindow()
     window.show()
-
     app_startup.close_system_splash(app_startup.syshwnd)
-
     sys.exit(app.exec())

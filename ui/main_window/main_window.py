@@ -1,8 +1,8 @@
 import sys
 import webbrowser
 
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QApplication
 from qfluentwidgets import (
     FluentWindow, NavigationItemPosition, FluentIcon,
     Theme, setTheme, isDarkTheme, setThemeColor,
@@ -20,6 +20,7 @@ from ui.pages.settings.settings_page import SettingsPage
 from ui.pages.widget.widget_page import WidgetPage
 from ui.pages.data.data_page import DataPage
 from ui.pages.storage.storage_page import StoragePage
+from ui.pages.storage.device_filter_page import DeviceFilterPage
 from ui.services.app_signals import AppSignals
 from help.helphtml import show_help_async
 from core.device.device_manager import DeviceManager
@@ -100,9 +101,18 @@ class HypeBeatWindow(FluentWindow):
             self.signals, 
             self.storage_service, 
             self.system_monitor,
-            self.settings_manager
+            self.settings_manager,
+            self.data_manager,
+            navigate_to_device_filter=self._show_device_filter_page
         )
         self.addSubInterface(self.storagePage, FluentIcon.SPEED_HIGH, "存储和性能")
+
+        # 设备筛选配置页 - 不显示在导航栏
+        self.deviceFilterPage = DeviceFilterPage(
+            self,
+            back_callback=self._show_storage_page_from_filter
+        )
+        self.stackedWidget.addWidget(self.deviceFilterPage)
 
         self.websiteButton = NavigationToolButton(FluentIcon.GLOBE, self)
         self.websiteButton.installEventFilter(ToolTipFilter(self.websiteButton, showDelay=300, position=ToolTipPosition.TOP))
@@ -114,13 +124,11 @@ class HypeBeatWindow(FluentWindow):
             position=NavigationItemPosition.BOTTOM
         )
 
-        self.helpButton = NavigationToolButton(FluentIcon.QUESTION, self)
-        self.helpButton.installEventFilter(ToolTipFilter(self.helpButton, showDelay=300, position=ToolTipPosition.TOP))
-        self.helpButton.setToolTip("帮助")
-        self.helpButton.clicked.connect(show_help_async)
-        self.navigationInterface.addWidget(
+        self.navigationInterface.addItem(
             routeKey='helpButton',
-            widget=self.helpButton,
+            icon=FluentIcon.QUESTION,
+            text='帮助',
+            onClick=lambda: None,
             position=NavigationItemPosition.BOTTOM
         )
 
@@ -189,9 +197,19 @@ class HypeBeatWindow(FluentWindow):
     def on_custom_button_clicked(self):
         webbrowser.open("https://www.nstechcod.top/")
 
+    def _show_device_filter_page(self):
+        """切换到设备筛选配置页（不更新导航高亮）"""
+        self.stackedWidget.setCurrentWidget(self.deviceFilterPage)
+
+    def _show_storage_page_from_filter(self):
+        """从设备筛选配置页返回到存储和性能页"""
+        self.switchTo(self.storagePage)
+
     def closeEvent(self, event):
         show_confirmation = self.settings_manager.get("show_close_confirmation", True)
         close_behavior = self.settings_manager.get("close_behavior", "minimize")
+
+        print(f"[MainWindow] 关闭事件触发: show_confirmation={show_confirmation}, behavior={close_behavior}")
 
         if show_confirmation:
             dialog = CloseConfirmationDialog(self)
