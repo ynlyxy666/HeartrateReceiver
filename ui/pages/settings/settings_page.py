@@ -180,8 +180,10 @@ class StorageSettingCard(ExpandGroupSettingCard):
         self.addGroup(FluentIcon.DOWNLOAD, "数据保存位置", self._get_data_dir(), self.openDirButton)
 
     def _get_data_dir(self):
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        return os.path.join(project_root, 'data')
+        """返回真实的数据保存目录（与 DataManager 实际写入位置一致）"""
+        if self.settings_manager:
+            return self.settings_manager.get_db_directory()
+        return os.path.join(os.path.expanduser("~"), ".heartrate_monitor")
 
     def _open_data_directory(self):
         import subprocess
@@ -254,17 +256,7 @@ class SettingsPage(QFrame):
         self.mainLayout.setContentsMargins(20, 20, 20, 20)
         self.mainLayout.addWidget(self.scrollArea)
         
-        if self.signals:
-            self.signals.settings_changed.connect(self.on_settings_changed)
-    
-    def on_settings_changed(self, key, value):
-        if self.device_manager and hasattr(self.device_manager, 'core'):
-            if key == 'auto_reconnect_enabled':
-                self.device_manager.core.auto_reconnect_enabled = value
-            elif key == 'auto_reconnect_attempts':
-                self.device_manager.core.max_reconnect_attempts = value
-            elif key == 'auto_reconnect_interval':
-                self.device_manager.core.reconnect_interval = value
+        # 设置变更由 DeviceManager 自行处理
     
     def showEvent(self, event):
         super().showEvent(event)

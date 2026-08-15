@@ -49,6 +49,7 @@ Thumbs.db
 .dbg/
 hypebeat.db-*
 migrate*
+PoCs/
 
 # Logs
 *.log

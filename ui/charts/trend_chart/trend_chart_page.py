@@ -8,9 +8,13 @@ from matplotlib.font_manager import FontProperties
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from qfluentwidgets import CardWidget
+from collections import deque
 
 # 字体设置：使用系统字体名称，避免硬编码路径
 FONT_CN = FontProperties(family='Microsoft YaHei', size=9)
+
+# 实时图表最多保留的数据点数（滑动窗口，避免无限累积与全量重绘卡顿）
+MAX_POINTS = 600
 
 
 class TrendChartPage(QWidget):
@@ -18,7 +22,7 @@ class TrendChartPage(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.data = []
+        self.data = deque(maxlen=MAX_POINTS)
         self.setup_ui()
 
     def setup_ui(self):
@@ -125,7 +129,7 @@ class TrendChartPage(QWidget):
         self.ax.clear()
         self.ax.set_facecolor('none')
 
-        data = self.data
+        data = list(self.data)
         n = len(data)
 
         if n == 0:

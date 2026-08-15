@@ -34,6 +34,7 @@ from system.monitor.storage_service import StorageService
 class HypeBeatWindow(FluentWindow):
     def __init__(self):
         super().__init__()
+        self._exiting = False
         self.setWindowTitle("听澜 · HypeBeat")
         self.resize(900, 700)
         self.setWindowIcon(get_icon_from_base64(ICON_ICO))
@@ -93,7 +94,7 @@ class HypeBeatWindow(FluentWindow):
         self.widgetPage = WidgetPage(self)
         self.addSubInterface(self.widgetPage, FluentIcon.ZOOM, "小组件")
 
-        self.dataPage = DataPage(self)
+        self.dataPage = DataPage(self, data_manager=self.data_manager)
         self.addSubInterface(self.dataPage, FluentIcon.MARKET, "数据分析与趋势")
 
         self.storagePage = StoragePage(
@@ -164,15 +165,37 @@ class HypeBeatWindow(FluentWindow):
         self.setMicaEffectEnabled(False)
 
     def show_main_window(self):
+        self.bring_to_front()
+
+    def bring_to_front(self):
+        """将主窗口置顶并激活到前台（启动完成或从后台唤醒时调用）
+
+        activateWindow 可能被 Windows 前台锁定机制拒绝，导致窗口虽显示却
+        落在其它窗口后面；这里再用 Win32 SetWindowPos 强制提到 Z 序顶部兜底。
+        """
         self.show()
         self.raise_()
         self.activateWindow()
+        try:
+            import ctypes
+            # HWND_TOP(0) + SWP_NOSIZE|SWP_NOMOVE|SWP_SHOWWINDOW
+            ctypes.windll.user32.SetWindowPos(
+                int(self.winId()), 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040)
+        except Exception:
+            pass
 
     def hide_main_window(self):
         self.hide()
 
     def exit_application(self):
         print("[Cleanup] 开始清理资源")
+        self._exiting = True
+        # 断开 BLE 设备（会停止 monitor 线程、取消重连定时器）
+        self.device_manager.disconnect_device()
+        print("[DeviceManager] 设备已断开")
+        # 停止系统监控线程
+        self.system_monitor.stop_monitoring()
+        print("[SystemMonitor] 系统监控已停止")
         try:
             self.themeListener.terminate()
             self.themeListener.deleteLater()
@@ -206,6 +229,11 @@ class HypeBeatWindow(FluentWindow):
         self.switchTo(self.storagePage)
 
     def closeEvent(self, event):
+        # 正在退出程序中，直接放行
+        if self._exiting:
+            event.accept()
+            return
+
         show_confirmation = self.settings_manager.get("show_close_confirmation", True)
         close_behavior = self.settings_manager.get("close_behavior", "minimize")
 

@@ -33,9 +33,15 @@ class DeviceManager:
 
         self._first_heart_rate_received = False
 
+        # 本次会话是否曾连接成功过（用于区分"首次连接失败"与"已连接后意外断开"）
+        self._ever_connected = False
+
         # 连接状态管理
         self._connection_state = ConnectionState.DISCONNECTED
         self._prev_connection_state = ConnectionState.DISCONNECTED
+
+        # 监听设置变更，同步更新 core 参数
+        self.signals.settings_changed.connect(self._on_settings_changed)
 
     def _cancel_reconnect_timer(self):
         if self.reconnect_timer:
@@ -52,6 +58,18 @@ class DeviceManager:
 
     def _state_name(self, state):
         return {1: "CONNECTED", 2: "RECONNECTING", 3: "DISCONNECTED"}.get(state, "UNKNOWN")
+
+    def _on_settings_changed(self, key, value):
+        """设置变更时同步更新 core 的对应参数"""
+        if key == "auto_reconnect_enabled":
+            self.core.auto_reconnect_enabled = value
+            print(f"[DeviceManager] 更新 auto_reconnect_enabled = {value}")
+        elif key == "auto_reconnect_attempts":
+            self.core.max_reconnect_attempts = value
+            print(f"[DeviceManager] 更新 max_reconnect_attempts = {value}")
+        elif key == "auto_reconnect_interval":
+            self.core.reconnect_interval = value
+            print(f"[DeviceManager] 更新 reconnect_interval = {value}")
 
     def start_scan(self, filter_heart_rate_devices=True):
         self.discovered_devices.clear()
@@ -169,8 +187,11 @@ class DeviceManager:
 
             self.signals.ui_progress_state_changed.emit(False, True)
 
-    def connect_device(self, selected_text):
+    def connect_device(self, selected_text, is_reconnect=False):
         self._first_heart_rate_received = False
+        if not is_reconnect:
+            # 用户主动发起的新连接：重置"曾连接成功"标记
+            self._ever_connected = False
 
         if not selected_text:
             self.signals.info_bar_requested.emit("warn", "请选择设备", "请先选择要连接的设备")
@@ -224,6 +245,13 @@ class DeviceManager:
         self._connecting = False
 
     def on_monitor_error(self, error):
+        if not self._ever_connected:
+            # 首次连接失败：直接提示用户，不进入自动重连流程
+            print(f"[DeviceManager] 首次连接失败: {error}")
+            self.signals.info_bar_requested.emit("error", "连接失败", f"{error}")
+            self.disconnect_device()
+            return
+
         if not self.user_disconnecting and self.core.auto_reconnect_enabled:
             print(f"[AutoReconnect] 设备断开，尝试自动重连...")
             self._set_connection_state(ConnectionState.RECONNECTING)
@@ -249,6 +277,7 @@ class DeviceManager:
 
         if "设备连接成功" in status:
             # 判断是从重连状态恢复还是彻底断开后重连
+            self._ever_connected = True
             if self._connection_state == ConnectionState.RECONNECTING:
                 self.signals.reconnect_success.emit()
             elif self._connection_state == ConnectionState.DISCONNECTED:
@@ -346,4 +375,4 @@ class DeviceManager:
             self.core.selected_device.address,
             self.core.selected_device.name
         )
-        self.connect_device(selected_text)
+        self.connect_device(selected_text, is_reconnect=True)

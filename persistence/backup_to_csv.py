@@ -10,8 +10,10 @@ import csv
 import sqlite3
 from datetime import datetime
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(PROJECT_ROOT, "hypebeat.db")
+from system.settings.settings_manager import SettingsManager
+
+# 数据库实际位置由 SettingsManager 决定（默认 ~/.heartrate_monitor/hypebeat.db）
+DB_PATH = os.path.join(SettingsManager().get_db_directory(), "hypebeat.db")
 BACKUP_PATH = r"D:\heart_rate_backup.csv"
 
 BATCH_SIZE = 50000

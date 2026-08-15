@@ -49,8 +49,8 @@ class HypeBeatThread(threading.Thread):
                 # 记录解析错误但不中断连接
                 print(f"[HeartRateParser] 数据解析警告: {e}")
             except Exception as e:
-                if self.on_error_cb:
-                    self.on_error_cb(f"解析心率数据出错: {e}")
+                # 数据解析/回调链异常只记录日志，绝不触碰连接状态机
+                print(f"[HeartRateParser] 数据处理异常（不影响连接）: {e}")
 
         try:
             if self.on_connection_status_cb:

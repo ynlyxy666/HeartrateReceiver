@@ -79,8 +79,9 @@ class DataManager:
 
     def flush_data(self):
         """确保所有数据写入数据库"""
-        if self.data_buffer:
-            self.write_data()
+        with self.lock:
+            if self.data_buffer:
+                self.write_data()
         print("[DataManager] 数据已刷新写入")
 
     def clear_temp_buffer(self):
@@ -93,8 +94,9 @@ class DataManager:
     def get_record_count(self):
         """获取数据库中已有的心率记录总数"""
         try:
-            cursor = self.conn.execute("SELECT COUNT(*) FROM heart_rate")
-            return cursor.fetchone()[0]
+            with self.lock:
+                cursor = self.conn.execute("SELECT COUNT(*) FROM heart_rate")
+                return cursor.fetchone()[0]
         except Exception as e:
             print(f"[DataManager] 获取记录数失败: {e}")
             return 0
@@ -108,23 +110,49 @@ class DataManager:
         try:
             now = datetime.now().timestamp() * 1000
             start_ts = int(now - days * 86400 * 1000)
-            cursor = self.conn.execute(
-                """SELECT strftime('%m-%d', ts / 1000, 'unixepoch') AS day,
-                          COUNT(*) AS cnt
-                   FROM heart_rate
-                   WHERE ts >= ?
-                   GROUP BY day
-                   ORDER BY day ASC""",
-                (start_ts,)
-            )
-            return cursor.fetchall()
+            with self.lock:
+                cursor = self.conn.execute(
+                    """SELECT strftime('%m-%d', ts / 1000, 'unixepoch') AS day,
+                              COUNT(*) AS cnt
+                       FROM heart_rate
+                       WHERE ts >= ?
+                       GROUP BY day
+                       ORDER BY day ASC""",
+                    (start_ts,)
+                )
+                return cursor.fetchall()
         except Exception as e:
             print(f"[DataManager] 获取日记录数失败: {e}")
             return []
 
+    def get_all_heart_rate_data(self):
+        """获取全部心率数据，按时间升序排列
+
+        Returns:
+            tuple[list[float], list[int]]: (时间戳列表(秒), 心率值列表)
+        """
+        try:
+            with self.lock:
+                cursor = self.conn.execute(
+                    "SELECT ts, hr FROM heart_rate ORDER BY ts"
+                )
+                timestamps, values = [], []
+                for row in cursor:
+                    ts_sec = row[0] / 1000  # 毫秒 → 秒
+                    hr = row[1]
+                    if 30 <= hr <= 250:
+                        timestamps.append(ts_sec)
+                        values.append(hr)
+            return timestamps, values
+        except Exception as e:
+            print(f"[DataManager] 获取心率数据失败: {e}")
+            return [], []
+
     def clear_all_data(self):
         """清空所有数据（包括 SQLite 和缓存）"""
-        self.clear_temp_buffer()
-        self.conn.execute("DELETE FROM heart_rate")
-        self.conn.commit()
-        print("[DataManager] 所有数据已清空")
+        with self.lock:
+            count = len(self.data_buffer)
+            self.data_buffer.clear()
+            self.conn.execute("DELETE FROM heart_rate")
+            self.conn.commit()
+            print(f"[DataManager] 所有数据已清空（丢弃缓存 {count} 条）")
