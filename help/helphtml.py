@@ -1,14 +1,29 @@
+import os
 import pathlib
+import sys
 import threading
-import webview
 
 _lock = threading.Lock()
 _window_open = False
 
 
+def _locate_help_html():
+    """定位 help.html：源码目录（开发）→ exe 目录（Nuitka onefile/standalone 打包）"""
+    candidates = []
+    candidates.append(pathlib.Path(__file__).with_name("help.html"))
+    candidates.append(pathlib.Path(sys.executable).parent / "help.html")
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
+
+
 def show_help():
-    """打开说明书窗口（同步，会阻塞主程序）"""
-    html = pathlib.Path(__file__).with_name("help.html").read_text("utf-8")
+    """打开说明书窗口（同步，会阻塞当前线程的事件循环）"""
+    # 惰性导入 webview：避免主程序启动时被拖入 pywebview/pythonnet 依赖链
+    import webview
+
+    html = _locate_help_html().read_text("utf-8")
     window = webview.create_window('说明书', html=html, width=1000, height=750, resizable=False)
     webview.start()
 

@@ -8,6 +8,13 @@ class ConnectionState:
     DISCONNECTED = 3   # 彻底断开
 
 
+class _ReconnectDeviceInfo:
+    """自动重连用的最小设备信息壳：仅承载已保存的 device 句柄"""
+
+    def __init__(self, device):
+        self.device = device
+
+
 from core.ble.scanner import DeviceScanThread
 from core.ble.monitor import HypeBeatThread
 from core.device.heart_rate_core import HypeBeatCore
@@ -192,6 +199,10 @@ class DeviceManager:
         if not is_reconnect:
             # 用户主动发起的新连接：重置"曾连接成功"标记
             self._ever_connected = False
+        elif self.user_disconnecting or self.is_disconnecting or self._connection_state != ConnectionState.RECONNECTING:
+            # 自动重连路径：用户已断开或连接状态已变化（如退出应用），放弃本次重连
+            print("[AutoReconnect] 连接状态已变化，放弃重连")
+            return
 
         if not selected_text:
             self.signals.info_bar_requested.emit("warn", "请选择设备", "请先选择要连接的设备")
@@ -208,8 +219,13 @@ class DeviceManager:
                 break
 
         if not selected_info:
-            self.signals.info_bar_requested.emit("warn", "设备选择错误", "请重新选择设备")
-            return
+            if is_reconnect and self.core.selected_device is not None:
+                # 自动重连时扫描列表可能为空/未刷新（意外断开后列表被清空或
+                # 重新扫描尚未完成），直接用已保存的设备句柄，不依赖列表匹配
+                selected_info = _ReconnectDeviceInfo(self.core.selected_device)
+            else:
+                self.signals.info_bar_requested.emit("warn", "设备选择错误", "请重新选择设备")
+                return
 
         self.core.selected_device = selected_info.device
         self.core.devices = device_list
@@ -293,7 +309,14 @@ class DeviceManager:
         elif "设备已断开连接" in status or "已断开连接" in status:
             self.signals.device_disconnected.emit()
 
-    def disconnect_device(self):
+    def disconnect_device(self, trigger_auto_rescan=True):
+        """断开设备连接
+
+        Args:
+            trigger_auto_rescan: 断开后是否自动重新扫描。
+                意外断开时为 True（恢复扫描让用户重新选择）；
+                应用退出时应传 False，避免退出后仍启动幽灵扫描线程。
+        """
         print(f"[DEBUG] disconnect_device called, is_disconnecting: {self.is_disconnecting}, user_disconnecting: {self.user_disconnecting}")
 
         if self.is_disconnecting:
@@ -331,7 +354,7 @@ class DeviceManager:
             self.is_disconnecting = False
             self.core.reconnect_attempts = 0
 
-        if not was_user_disconnecting:
+        if not was_user_disconnecting and trigger_auto_rescan:
             print(f"[DeviceManager] 设备意外断开，自动恢复扫描")
             threading.Timer(
                 0.3,
@@ -360,6 +383,12 @@ class DeviceManager:
     def _attempt_reconnect(self):
         self.reconnect_timer = None
         print(f"[AutoReconnect] 执行重连...")
+
+        # 竞态防护：定时器触发瞬间用户可能已断开（或正在断开/退出）。
+        # threading.Timer.cancel() 无法阻止已触发的回调，这里必须再次校验状态。
+        if self.user_disconnecting or self.is_disconnecting or self._connection_state != ConnectionState.RECONNECTING:
+            print("[AutoReconnect] 用户已断开或状态已变化，放弃重连")
+            return
 
         if self.core.monitor_thread:
             self.core.monitor_thread.stop()

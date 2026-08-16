@@ -1,7 +1,8 @@
 import os
+import threading
 from datetime import datetime, timedelta
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, QRectF, QTimer
+from PySide6.QtCore import Qt, QRectF, QTimer, Signal
 from PySide6.QtGui import QPainter, QColor, QBrush, QPainterPath
 from qfluentwidgets import CardWidget, SubtitleLabel, BodyLabel
 
@@ -47,6 +48,11 @@ class StorageBar(QFrame):
                 current_x += seg_width
 
 class StoragePage(QFrame):
+    """存储和性能页面"""
+
+    # 后台统计线程完成后的结果信号（dict: app_size/db_size/record_count/daily）
+    _stats_ready = Signal(object)
+
     def __init__(self, parent=None, signals=None, storage_service=None, system_monitor=None, settings_manager=None, data_manager=None, navigate_to_device_filter=None):
         super().__init__(parent)
         self.signals = signals
@@ -55,6 +61,14 @@ class StoragePage(QFrame):
         self.settings_manager = settings_manager
         self.data_manager = data_manager
         self._navigate_to_device_filter = navigate_to_device_filter
+
+        # 磁盘/软件占用缓存（后台线程计算，避免在 UI 线程做目录递归统计）
+        self._total_gb = 0
+        self._used_gb = 0
+        self._used_percent = 0
+        self._app_size_gb = 0
+        self._stats_worker = None
+        self._stats_ready.connect(self._on_stats_ready)
 
         self.setObjectName("storagePage")
 
@@ -288,7 +302,6 @@ class StoragePage(QFrame):
             self.signals.memory_info_updated.connect(self.update_memory_info)
 
         QTimer.singleShot(400, self.initial_refresh)
-        QTimer.singleShot(500, self._update_db_size)
 
     def _get_db_dir(self):
         """获取数据库目录"""
@@ -320,32 +333,54 @@ class StoragePage(QFrame):
         else:
             return f"{bytes_size / (1024 ** 3):.2f} GB"
 
-    def _update_db_size(self):
-        """更新数据库大小和记录数显示"""
+    def _start_stats_worker(self):
+        """启动后台统计线程（目录大小/记录数/近14日分布），避免阻塞 UI"""
+        if self._stats_worker and self._stats_worker.is_alive():
+            return
+        self._stats_worker = threading.Thread(target=self._stats_worker_run, daemon=True)
+        self._stats_worker.start()
+
+    def _stats_worker_run(self):
+        """后台线程：递归统计应用目录/数据库目录大小，查询记录数与近14日分布"""
+        result = {'app_size': 0, 'db_size': 0, 'record_count': 0, 'daily': []}
         try:
+            if self.storage_service:
+                app_path = self.storage_service.get_project_root()
+                if app_path and os.path.isdir(app_path):
+                    result['app_size'] = self._get_dir_size(app_path)
             db_dir = self._get_db_dir()
-            if db_dir:
-                size = self._get_dir_size(db_dir)
-                self.dbSizeValueLabel.setText(self._format_size(size))
-            else:
-                self.dbSizeValueLabel.setText("未知")
+            if db_dir and os.path.isdir(db_dir):
+                result['db_size'] = self._get_dir_size(db_dir)
+            if self.data_manager:
+                result['record_count'] = self.data_manager.get_record_count()
+                result['daily'] = self.data_manager.get_daily_record_counts(14)
         except Exception as e:
-            print(f"[StoragePage] 获取数据库大小失败: {e}")
+            print(f"[StoragePage] 后台统计出错: {e}")
+        self._stats_ready.emit(result)
+
+    def _on_stats_ready(self, result):
+        """UI 线程：应用后台统计结果，刷新大小/条数/图表/磁盘条"""
+        try:
+            self._app_size_gb = round(result.get('app_size', 0) / (1024 ** 3), 3)
+        except Exception:
+            self._app_size_gb = 0
+
+        try:
+            self.dbSizeValueLabel.setText(self._format_size(result.get('db_size', 0)))
+        except Exception as e:
+            print(f"[StoragePage] 更新数据库大小失败: {e}")
             self.dbSizeValueLabel.setText("获取失败")
 
-        # 更新总数据条数
         try:
-            if self.data_manager:
-                count = self.data_manager.get_record_count()
-                self.recordCountValueLabel.setText(f"{count:,}")
-            else:
-                self.recordCountValueLabel.setText("未知")
+            self.recordCountValueLabel.setText(f"{result.get('record_count', 0):,}")
         except Exception as e:
-            print(f"[StoragePage] 获取记录数失败: {e}")
+            print(f"[StoragePage] 更新记录数失败: {e}")
             self.recordCountValueLabel.setText("获取失败")
 
-        # 更新图表
-        self._update_chart()
+        self._update_chart(result.get('daily', []))
+
+        # 磁盘占用条依赖软件占用大小，统计完成后重新渲染
+        self._render_disk_bar()
 
     def _style_chart_ax(self, daily_data):
         """设置图表初始样式（无数据时显示占位）"""
@@ -358,18 +393,17 @@ class StoragePage(QFrame):
         for spine in self.chartAx.spines.values():
             spine.set_visible(False)
 
-    def _update_chart(self):
-        """从数据库获取近 14 天数据并绘制折线图（无数据天补 0）"""
+    def _update_chart(self, daily):
+        """从后台线程查询到的近 14 天数据绘制折线图（无数据天补 0）"""
         try:
             self.chartAx.clear()
             self.chartAx.patch.set_alpha(0)
-            if not self.data_manager:
+            if not daily:
                 self.chartAx.text(0.5, 0.5, "暂无数据", transform=self.chartAx.transAxes,
                                   ha="center", va="center", fontsize=10, color="gray")
                 self.chartCanvas.draw_idle()
                 return
 
-            daily = self.data_manager.get_daily_record_counts(14)
             db_map = {row[0]: row[1] for row in daily}
 
             # 生成完整的 14 天日期列表，缺失补 0
@@ -415,15 +449,25 @@ class StoragePage(QFrame):
             self.storage_service.emit_disk_space_info()
         if self.system_monitor:
             self.system_monitor.start_monitoring()
-        self._update_db_size()
+        # 目录递归统计放到后台线程，避免启动时卡住 UI
+        self._start_stats_worker()
 
     def on_disk_space_updated(self, total_gb, used_gb, used_percent):
+        # 缓存磁盘总量，具体软件占用大小由后台线程统计后通过 _render_disk_bar 渲染
+        self._total_gb = total_gb
+        self._used_gb = used_gb
+        self._used_percent = used_percent
         self.diskSpaceTotalLabel.setText(f"共 {total_gb} GB")
+        self._render_disk_bar()
 
-        if self.storage_service and total_gb > 0:
-            app_size_gb, app_percent = self.storage_service.get_app_size_info(total_gb)
-        else:
-            app_size_gb, app_percent = 0, 0
+    def _render_disk_bar(self):
+        """根据缓存的总量/占用/软件大小渲染磁盘占用条与文字（UI 线程，无 IO）"""
+        total_gb = self._total_gb
+        if total_gb <= 0:
+            return
+
+        app_percent = round(self._app_size_gb / total_gb * 100, 1)
+        used_percent = self._used_percent
 
         orange_percent = app_percent
         cyan_percent = used_percent - app_percent
@@ -436,12 +480,12 @@ class StoragePage(QFrame):
         ]
         self.diskSpaceBar.update()
 
-        other_data_gb = round(used_gb - app_size_gb, 3)
-        free_space = round(total_gb - used_gb, 3)
+        other_data_gb = round(self._used_gb - self._app_size_gb, 3)
+        free_space = round(total_gb - self._used_gb, 3)
 
         # 将 GB 转为字节后用自适应格式化
         gb_to_bytes = 1024 ** 3
-        app_size_bytes = int(app_size_gb * gb_to_bytes)
+        app_size_bytes = int(self._app_size_gb * gb_to_bytes)
         other_data_bytes = int(max(other_data_gb, 0) * gb_to_bytes)
         free_space_bytes = int(max(free_space, 0) * gb_to_bytes)
 

@@ -1,6 +1,5 @@
 import os
 import time
-import random
 import threading
 import psutil
 
@@ -18,10 +17,12 @@ class CPUInfoThread(threading.Thread):
         self._running = False
 
     def run(self):
+        proc = psutil.Process(os.getpid())
         while self._running:
             try:
                 cpu_percent = psutil.cpu_percent(interval=0.1)
-                process_cpu = round(random.uniform(0.1, 0.5), 1)
+                # 真实测量本进程 CPU 占用（相对上一次调用的平均值）
+                process_cpu = round(proc.cpu_percent(interval=None), 1)
                 other_cpu = cpu_percent - process_cpu
                 other_cpu = max(other_cpu, 0)
                 self.callback(cpu_percent, process_cpu, other_cpu)

@@ -36,14 +36,15 @@ A Windows desktop application that scans and connects to BLE heart rate monitors
 
 | 层级         | 技术                                           |
 | ---------- | -------------------------------------------- |
-| **UI 框架**  | PyQt6 + PyQt6-Fluent-Widgets (Fluent Design) |
+| **UI 框架**  | PySide6 + PySide6-Fluent-Widgets (Fluent Design) |
 | **蓝牙通信**   | bleak（跨平台 BLE 库）                             |
 | **系统 API** | pywin32 (win32gui, win32api, win32con)       |
 | **进程通信**   | mmap 共享内存（`HeartRateSharedMemory`）           |
 | **图像处理**   | Pillow (PIL)                                 |
 | **系统监控**   | psutil                                       |
-| **窗口特效**   | PyQt6-Frameless-Window                       |
-| **编译打包**   | Nuitka (standalone) + Inno Setup (安装包)       |
+| **窗口特效**   | PySideSix-Frameless-Window                    |
+| **全量分析/ML** | DuckDB（直接扫描 SQLite / 导出 Parquet）          |
+| **编译打包**   | Nuitka (standalone/onefile)                   |
 
 ***
 
@@ -90,10 +91,17 @@ HypeBeat/
 ├── config/
 │   └── config.json          # QFluentWidgets 主题配置
 ├── resources/               # 资源文件（图标 base64）
-├── build.py                 # Nuitka 编译脚本
-├── pack.iss                 # Inno Setup 安装脚本
+├── persistence/
+│   ├── export_to_parquet.py # DuckDB 全量导出 Parquet（ML/分析用）
+│   └── analyze.py           # DuckDB 全量分析示例（ML 特征原型）
+├── build/
+│   ├── build.py             # Nuitka 编译脚本（python build/build.py）
+│   ├── msvc.bat             # MSVC 编译环境（vcvars64）
+│   └── schedule_build.py    # 预约深夜编译小工具
 └── requirements.txt         # Python 依赖
 ```
+
+> 注：README 中安装包（Inno Setup）脚本 `pack.iss` 尚未创建；如需分发安装包请补写该脚本。
 
 ***
 
@@ -108,7 +116,7 @@ main.py → bin/app.py
   │       ├── 显示 Win32 原生闪屏（TOPMOST）
   │       └── 单实例检测（命名 Mutex）
   │
-  ├── [2] PyQt6 模块加载（闪屏已显示，掩盖耗时）
+  ├── [2] PySide6 模块加载（闪屏已显示，掩盖耗时）
   │
   ├── [3] HeartRateMonitorWindow.__init__()
   │       ├── 系统托盘
@@ -137,20 +145,21 @@ python main.py
 ### 编译（Nuitka）
 
 ```bash
-python build.py
+# 在 hypebeat conda 环境中执行
+python build/build.py
 ```
 
-输出到 `F:/HypeBeatDist/`，生成 `HypeBeat.exe`
+输出到 `F:/HypeBeatDist/`，生成 `HypeBeat.exe`（onefile，需本机已装 MSVC BuildTools，见 `build/msvc.bat`）。
 
 ### 打包安装包（Inno Setup）
 
-用 `pack.iss` 通过 Inno Setup 编译为 Windows 安装程序。
+`pack.iss` 尚未创建；如需分发安装包，请先用 Inno Setup 编写该脚本（可基于 `F:/HypeBeatDist/HypeBeat.exe` 打包）。
 
 ***
 
 ## 数据存储 | Data Storage
 
-心率数据使用 SQLite 数据库存储，位于项目根目录的 `hypebeat.db`：
+心率数据使用 SQLite 数据库存储，默认位于用户目录 `~/.heartrate_monitor/hypebeat.db`（可在设置中修改数据目录）：
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |

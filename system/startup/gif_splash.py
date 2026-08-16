@@ -12,6 +12,7 @@
 
 import ctypes
 import os
+import sys
 import threading
 
 import win32api
@@ -29,9 +30,30 @@ KEY_COLORREF = (255 << 16) | (0 << 8) | 255   # COLORREF(0x00BBGGRR)
 LWA_COLORKEY = 0x1
 LWA_ALPHA = 0x2
 
-# 启动 GIF 固定位于程序根目录（gif_splash.py -> startup -> system -> 根目录，共上三级）
-_PROG_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SPLASH_GIF_PATH = os.path.join(_PROG_DIR, "splash.gif")
+# 启动 GIF 定位：依次尝试 源码目录（开发模式）→ exe 所在目录（Nuitka onefile/standalone，
+# include-data-files 将 splash.gif 放在 exe 旁）→ 环境变量覆盖。
+# 注意：Nuitka onefile 下编译模块的 __file__ 指向解压临时目录，上溯三级 ≠ exe 目录，
+# 因此必须回退到 sys.executable 所在目录。
+def _locate_splash_gif():
+    candidates = []
+    env_path = os.environ.get("HYPEBEAT_SPLASH_GIF")
+    if env_path:
+        candidates.append(env_path)
+    # gif_splash.py -> startup -> system -> 项目根目录，共上三级
+    candidates.append(
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "splash.gif",
+        )
+    )
+    candidates.append(os.path.join(os.path.dirname(sys.executable), "splash.gif"))
+    for p in candidates:
+        if os.path.exists(p) and os.path.getsize(p) > 0:
+            return p
+    return candidates[-1]
+
+
+SPLASH_GIF_PATH = _locate_splash_gif()
 
 # pywin32 未封装 SetTimer/KillTimer，用 ctypes 调 user32（显式 argtypes 防 64 位句柄截断）
 _user32 = ctypes.windll.user32

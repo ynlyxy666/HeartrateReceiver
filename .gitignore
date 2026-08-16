@@ -25,7 +25,7 @@ sync
 dist
 build_nuitka.bat
 build.info
-building/
+
 
 # Virtual Environment
 venv/
@@ -39,7 +39,8 @@ test/
 *.swp
 *.swo
 *~
-data/
+# 仅忽略根目录 data/（未锚定的 data/ 会误伤 ui/pages/data/ 等任意层级同名目录）
+/data/
 bak/
 test/
 preparedata/

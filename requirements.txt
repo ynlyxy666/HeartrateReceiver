@@ -8,3 +8,6 @@ matplotlib
 numpy
 Pillow
 pywebview
+# 全量分析 / ML 读取（可选）：直接扫描 SQLite 或导出 Parquet。
+# 注意: sqlite_scanner 扩展首次使用需联网下载（Parquet 读写内置，离线可用）
+duckdb>=1.4

@@ -190,8 +190,9 @@ class HypeBeatWindow(FluentWindow):
     def exit_application(self):
         print("[Cleanup] 开始清理资源")
         self._exiting = True
-        # 断开 BLE 设备（会停止 monitor 线程、取消重连定时器）
-        self.device_manager.disconnect_device()
+        # 断开 BLE 设备（会停止 monitor 线程、取消重连定时器）。
+        # trigger_auto_rescan=False：避免退出后仍启动幽灵扫描线程
+        self.device_manager.disconnect_device(trigger_auto_rescan=False)
         print("[DeviceManager] 设备已断开")
         # 停止系统监控线程
         self.system_monitor.stop_monitoring()
